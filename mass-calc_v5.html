@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RK LAB — MS-100 Mass Scale v5</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0c0e12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RK-Lab Massa">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0c0e12;
+    --bg-alt: #12151a;
+    --panel: #171a20;
+    --panel-alt: #1d2129;
+    --border: #272b33;
+    --border-soft: #20242c;
+    --ink: #edeff3;
+    --ink-soft: #8b93a1;
+    --ink-dim: #565d6b;
+    --accent: #5b7cfa;
+    --accent-dim: #33406e;
+    --accent-soft: rgba(91,124,250,0.12);
+    --mint: #21d19f;
+    --mint-dim: rgba(33,209,159,0.14);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  html,body{ height:100%; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 22px 12px 60px;
+    min-height:100vh;
+  }
+  .wrap{ max-width: 480px; margin: 0 auto; }
+
+  .chassis{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 16px 22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    position: relative;
+  }
+  .chassis::before{ content:none; }
+  .rivet{ display:none; }
+
+  .nameplate{
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 0 0 16px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: visible;
+  }
+  .nameplate::before{ content:none; }
+  .np-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .np-model{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: 22px; color: var(--ink); letter-spacing: -0.3px; }
+  .np-tag{
+    font-size: 10px; color: var(--bg); background: var(--mint); border: none;
+    border-radius: 6px; padding: 4px 9px; letter-spacing: 0.4px; white-space: nowrap;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; flex-shrink:0; margin-top:2px;
+  }
+  .np-desc{
+    font-size: 13px; color: var(--ink-soft); margin-top: 10px; line-height: 1.55;
+    border-top: none; padding-top: 0;
+  }
+
+  .panel{
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: none;
+  }
+  .panel-head{
+    display:flex; align-items:center; gap:9px;
+    font-family:'Space Grotesk',sans-serif;
+    font-size: 14px; font-weight:600; letter-spacing: 0.2px; text-transform: none;
+    color: var(--ink); margin-bottom: 12px;
+  }
+  .panel-head .idx{
+    background: var(--accent-soft); color: var(--accent); border:1px solid var(--accent-dim);
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: 11px;
+    width: 20px; height:20px; border-radius: 6px;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+
+  .toggle-strip{
+    display:grid; gap: 6px;
+    background: var(--bg-alt); padding: 5px; border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .toggle-btn{
+    text-align:center; padding: 9px 4px; font-size: 11.5px; color: var(--ink-soft);
+    border-radius: 7px; cursor:pointer; letter-spacing: 0.2px;
+    transition: all .12s; user-select:none;
+    font-family:'Inter',sans-serif; font-weight:600;
+    background: transparent;
+  }
+  .toggle-btn.active{ background: var(--accent); color: #fff; font-weight: 700; }
+
+  .field{ margin-top: 12px; }
+  .field label{
+    display:flex; justify-content: space-between; font-size: 11px; color: var(--ink-soft);
+    letter-spacing: 0.2px; margin-bottom: 6px; text-transform: none;
+    font-family:'Inter',sans-serif; font-weight:600;
+  }
+  .field label .tag{ color: var(--accent); }
+  .field input, .field select{
+    width: 100%;
+    background: var(--bg-alt); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 9px; padding: 10px 11px; font-size: 15px;
+    font-family: 'JetBrains Mono', monospace;
+    box-shadow: none;
+  }
+  .field input:focus, .field select:focus{ outline: none; border-color: var(--accent); }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  select{ font-family:'JetBrains Mono' !important; }
+
+  .input-unit-row{ display:flex; gap:6px; }
+  .input-unit-row input{ flex:1; min-width:0; }
+  .input-unit-row select{ width: 62px; flex-shrink:0; padding: 10px 4px; text-align:center; }
+
+  .dens-custom{ display:none; }
+  .dens-custom.show{ display:block; }
+
+  .lcd{
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 16px 14px;
+    position: relative;
+    box-shadow: none;
+  }
+  .lcd-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding: 6px 0; font-family:'JetBrains Mono', monospace;
+  }
+  .lcd-row + .lcd-row{ border-top: 1px solid var(--border-soft); }
+  .lcd-label{ font-size: 11px; color: var(--ink-soft); letter-spacing: 0.2px; text-transform: none; font-family:'Inter',sans-serif; font-weight:600; }
+  .lcd-value{ font-size: 15px; color: var(--ink); text-shadow: none; }
+  .lcd-main{ text-align: right; margin-top: 8px; padding-top:10px; border-top:1px solid var(--border-soft); }
+  .lcd-main .lcd-value{
+    font-family:'Space Grotesk',sans-serif;
+    font-size: 30px; color: var(--mint); font-weight:700;
+    text-shadow: none; letter-spacing: -0.3px;
+  }
+
+  .solution{
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.9;
+    color: var(--ink);
+  }
+  .solution .step-label{
+    color: var(--accent); font-size: 10.5px; letter-spacing: 0.3px; text-transform: uppercase;
+    margin-top: 10px; margin-bottom: 2px; font-family:'Inter',sans-serif; font-weight:700;
+  }
+  .solution .step-label:first-child{ margin-top: 0; }
+  .solution .step-line{ color: var(--ink); }
+  .solution .step-note{ color: var(--ink-dim); font-size: 11px; font-family:'Inter',sans-serif; }
+  .solution .step-final{
+    color: var(--mint); font-weight: 700;
+    border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px;
+    font-family:'Inter',sans-serif;
+  }
+
+  .stamp-row{ display:flex; justify-content:space-between; align-items:center; margin-top: 14px; padding: 0 4px; }
+  .stamp{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size: 10px; letter-spacing: 1px; color: var(--ink-dim); text-transform: uppercase; opacity: 0.9; }
+  .serial{ font-size: 10px; color: var(--ink-dim); letter-spacing: 0.2px; font-family:'JetBrains Mono',monospace; }
+
+  footer{
+    text-align:center; color: var(--ink-dim); font-size: 11px;
+    letter-spacing: 0.3px; margin-top: 20px; text-transform: none; opacity:0.8;
+  }
+
+  /* ===== Tampilan layar lebar (PC/laptop) ===== */
+  @media (min-width:900px){
+    body{ padding-top:40px; }
+    .wrap{ max-width:720px; }
+    .chassis{ padding-left:34px; padding-right:34px; }
+    .np-model{ font-size:28px; }
+    .np-desc{ font-size:14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chassis">
+    <div class="rivet tl"></div>
+    <div class="rivet tr"></div>
+    <div class="rivet bl"></div>
+    <div class="rivet br"></div>
+
+    <div class="nameplate">
+      <div class="np-top">
+        <div class="np-model">MASS FROM VOLUME</div>
+        <div class="np-tag">CALC-v5</div>
+      </div>
+      <div class="np-desc">Pilih bentuk (termasuk IWF/WF & Hollow) → isi dimensi (satuan bebas per kolom) → pilih material → opsional berat wadah & toleransi beban. Massa dihitung dari volume × massa jenis, lalu wadah + toleransi ditambahkan ke beban akhir.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="idx">1</span>BENTUK BENDA</div>
+      <div class="toggle-strip" id="shapeGrid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="toggle-btn active" data-shape="kubus">KUBUS</div>
+        <div class="toggle-btn" data-shape="balok">BALOK</div>
+        <div class="toggle-btn" data-shape="tabung">TABUNG</div>
+        <div class="toggle-btn" data-shape="pipa">PIPA</div>
+        <div class="toggle-btn" data-shape="bola">BOLA</div>
+        <div class="toggle-btn" data-shape="kerucut">KERUCUT</div>
+        <div class="toggle-btn" data-shape="iwf">IWF/WF</div>
+        <div class="toggle-btn" data-shape="hollow">HOLLOW</div>
+      </div>
+
+      <div id="modeRow"></div>
+      <div id="dimFields"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="idx">2</span>MATERIAL</div>
+      <div class="field" style="margin-top:0;">
+        <label>Jenis bahan <span class="tag">kg/m³</span></label>
+        <select id="materialSelect"></select>
+      </div>
+      <div class="field dens-custom" id="customDensWrap">
+        <label>Massa jenis custom <span class="tag">kg/m³</span></label>
+        <input type="number" id="customDens" step="1" min="0" placeholder="mis. 800" style="width:100%;">
+      </div>
+      <div class="field">
+        <label>Jumlah benda <span class="tag">pcs</span></label>
+        <input type="number" id="qtyInput" step="1" min="1" value="1" style="width:100%;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="idx">3</span>WADAH & TOLERANSI</div>
+      <div class="field" style="margin-top:0;">
+        <label>Berat wadah/kemasan <span class="tag">kg</span></label>
+        <input type="number" id="wadahInput" step="0.01" min="0" value="0" placeholder="0 = tanpa wadah" style="width:100%;">
+      </div>
+      <div class="field">
+        <label>Toleransi beban <span class="tag">%</span></label>
+        <input type="number" id="toleransiInput" step="0.1" min="0" value="0" placeholder="0 = tanpa toleransi" style="width:100%;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="idx">4</span>HASIL BACAAN</div>
+      <div class="toggle-strip" id="massUnitGrid" style="grid-template-columns:repeat(2,1fr); margin-bottom:12px;">
+        <div class="toggle-btn active" data-unit="metric">GRAM / KG</div>
+        <div class="toggle-btn" data-unit="imperial">OZ / LBS</div>
+      </div>
+      <div class="lcd">
+        <div class="lcd-row"><span class="lcd-label">Volume (1 pcs)</span><span class="lcd-value" id="outVolume">0.000 cm³</span></div>
+        <div class="lcd-row"><span class="lcd-label">Massa jenis</span><span class="lcd-value" id="outDensity">0 kg/m³</span></div>
+        <div class="lcd-row"><span class="lcd-label">Jumlah</span><span class="lcd-value" id="outQty">1 pcs</span></div>
+        <div class="lcd-row"><span class="lcd-label">Massa benda</span><span class="lcd-value" id="outMass">0.000 g</span></div>
+        <div class="lcd-row" id="rowWadah" style="display:none;"><span class="lcd-label">Berat wadah</span><span class="lcd-value" id="outWadah">0 kg</span></div>
+        <div class="lcd-row" id="rowToleransi" style="display:none;"><span class="lcd-label">Toleransi</span><span class="lcd-value" id="outToleransi">0%</span></div>
+        <div class="lcd-row"><span class="lcd-label" id="finalLabel">Beban akhir</span></div>
+        <div class="lcd-main"><span class="lcd-value" id="outFinal">0.000 g</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="idx">5</span>RUMUS & PENYELESAIAN</div>
+      <div class="solution" id="solutionBox"></div>
+    </div>
+
+    <div class="stamp-row">
+      <div class="serial" id="serial">SN—</div>
+      <div class="stamp">RK LAB</div>
+    </div>
+  </div>
+
+  <footer>RK LAB — Thitryone</footer>
+</div>
+
+<script>
+/* ---------- konstanta ---------- */
+const PI_APPROX = 3.14;
+const cmPerUnit = { mm: 0.1, cm: 1, m: 100, ft: 30.48 };
+const unitLabel = { mm: "mm", cm: "cm", m: "m", ft: "ft" };
+
+const materials = [
+  {name:"Tembaga (Cu)", d:8.96},
+  {name:"Kuningan (Brass)", d:8.50},
+  {name:"Perunggu (Bronze)", d:8.80},
+  {name:"Aluminium (Al)", d:2.70},
+  {name:"Besi Cor", d:7.20},
+  {name:"Baja / Besi (Steel)", d:7.85},
+  {name:"Stainless Steel", d:8.00},
+  {name:"Seng (Zn)", d:7.14},
+  {name:"Timah (Sn)", d:7.30},
+  {name:"Timbal (Pb)", d:11.34},
+  {name:"Nikel (Ni)", d:8.90},
+  {name:"Perak (Ag)", d:10.49},
+  {name:"Emas (Au)", d:19.32},
+  {name:"Titanium (Ti)", d:4.51},
+  {name:"Kayu (rata-rata)", d:0.60},
+  {name:"Akrilik / Acrylic", d:1.18},
+  {name:"PVC", d:1.38},
+  {name:"Nylon", d:1.15},
+  {name:"— CAIRAN —", d:null, header:true},
+  {name:"Air murni", d:1.00},
+  {name:"Air laut", d:1.03},
+  {name:"Minyak tanah (Kerosene)", d:0.80},
+  {name:"Bensin (Gasoline)", d:0.74},
+  {name:"Solar (Diesel)", d:0.85},
+  {name:"Minyak Pertamax", d:0.74},
+  {name:"Oli mesin (SAE)", d:0.88},
+  {name:"Minyak goreng", d:0.92},
+  {name:"Alkohol / Etanol", d:0.79},
+  {name:"Spirtus (Metanol)", d:0.79},
+  {name:"Gliserin", d:1.26},
+  {name:"Madu", d:1.42},
+  {name:"Susu", d:1.03},
+  {name:"Air raksa (Merkuri)", d:13.53},
+  {name:"Custom...", d:null}
+];
+
+const shapeLabel = { kubus:"Kubus", balok:"Balok", tabung:"Tabung", pipa:"Pipa", bola:"Bola", kerucut:"Kerucut", iwf:"Profil IWF/WF", hollow:"Hollow (pipa kotak)" };
+const formulaText = {
+  kubus: "V = s³",
+  balok: "V = p × l × t",
+  tabung: "V = π × R² × t",
+  pipa: "V = π × (R² − r²) × t",
+  bola: "V = (4/3) × π × R³",
+  kerucut: "V = (1/3) × π × R² × t",
+  iwf: "V = [(2 × B × t) + ((T − 2t) × t)] × P",
+  hollow: "V = [(L × T) − ((L−2t) × (T−2t))] × P"
+};
+const RADIUS_SHAPES = ["tabung","bola","kerucut"];
+
+const volumeFns = {
+  kubus:   d => Math.pow(d.s,3),
+  balok:   d => d.p*d.l*d.t,
+  tabung:  d => PI_APPROX*Math.pow(d.R,2)*d.t,
+  pipa:    d => PI_APPROX*(Math.pow(d.rl,2)-Math.pow(d.rd,2))*d.t,
+  bola:    d => (4/3)*PI_APPROX*Math.pow(d.R,3),
+  kerucut: d => (1/3)*PI_APPROX*Math.pow(d.R,2)*d.t,
+  iwf:     d => ((2*d.b*d.t) + (Math.max(d.h-2*d.t,0)*d.t)) * d.l,
+  hollow:  d => (Math.max((d.w*d.h) - (Math.max(d.w-2*d.t,0)*Math.max(d.h-2*d.t,0)),0)) * d.l
+};
+
+/* ---------- state ---------- */
+let currentShape = "kubus";
+let radiusMode = "r";      // 'r' or 'd', dipakai tabung/bola/kerucut
+let pipaMode = "rr";       // 'rr' | 'dd' | 'dt'
+let massUnit = "metric";
+let fieldUnits = {};       // {fieldId: 'mm'|'cm'|'m'|'ft'}
+
+/* ---------- elements ---------- */
+const dimFields = document.getElementById('dimFields');
+const modeRow = document.getElementById('modeRow');
+const shapeGrid = document.getElementById('shapeGrid');
+const materialSelect = document.getElementById('materialSelect');
+const customDensWrap = document.getElementById('customDensWrap');
+const customDens = document.getElementById('customDens');
+const qtyInput = document.getElementById('qtyInput');
+const outVolume = document.getElementById('outVolume');
+const outDensity = document.getElementById('outDensity');
+const outQty = document.getElementById('outQty');
+const outMass = document.getElementById('outMass');
+const solutionBox = document.getElementById('solutionBox');
+const serial = document.getElementById('serial');
+const massUnitGrid = document.getElementById('massUnitGrid');
+const wadahInput = document.getElementById('wadahInput');
+const toleransiInput = document.getElementById('toleransiInput');
+const rowWadah = document.getElementById('rowWadah');
+const rowToleransi = document.getElementById('rowToleransi');
+const outWadah = document.getElementById('outWadah');
+const outToleransi = document.getElementById('outToleransi');
+const outFinal = document.getElementById('outFinal');
+const finalLabel = document.getElementById('finalLabel');
+
+/* ---------- populate materials ---------- */
+materials.forEach((m,i)=>{
+  const opt = document.createElement('option');
+  opt.value = i;
+  if(m.header){ opt.textContent = m.name; opt.disabled = true; }
+  else { opt.textContent = `${m.name} — ${Math.round(m.d*1000)} kg/m³`; }
+  materialSelect.appendChild(opt);
+});
+materialSelect.value = 0;
+
+/* ---------- helpers ---------- */
+// format angka dengan jumlah desimal yang "relevan" (dibulatkan 5 desimal, lalu buang nol tak perlu,
+// minimal tampilkan 1 desimal kalau memang ada pecahan)
+function fmt(n, maxDec){
+  if(!Number.isFinite(n)) return '0';
+  maxDec = maxDec === undefined ? 5 : maxDec;
+  let s = n.toFixed(maxDec);
+  if(s.indexOf('.') !== -1){
+    s = s.replace(/0+$/,'');
+    s = s.replace(/\.$/,'');
+  }
+  if(s === '' || s === '-0') s = '0';
+  return s.replace('.',',');
+}
+
+// pilih satuan massa otomatis: gram (<1000g) / kg (<1.000.000g) / ton (>=1.000.000g)
+function autoUnit(grams){
+  if(grams >= 1000000) return { val: grams/1000000, unit:'ton', divisor:1000000 };
+  if(grams >= 1000)    return { val: grams/1000,    unit:'kg',  divisor:1000 };
+  return { val: grams, unit:'gram', divisor:1 };
+}
+
+function unitSelectHtml(fieldId){
+  const u = fieldUnits[fieldId] || 'cm';
+  let opts = '';
+  ['mm','cm','m','ft'].forEach(un=>{
+    opts += `<option value="${un}" ${un===u?'selected':''}>${un}</option>`;
+  });
+  return `<select data-unit-for="${fieldId}">${opts}</select>`;
+}
+
+function fieldRow(id, label){
+  if(!(id in fieldUnits)) fieldUnits[id] = 'cm';
+  const div = document.createElement('div');
+  div.className = 'field';
+  div.innerHTML = `<label>${label}</label>
+    <div class="input-unit-row">
+      <input type="number" step="0.01" min="0" data-dim="${id}" placeholder="0">
+      ${unitSelectHtml(id)}
+    </div>`;
+  return div;
+}
+
+/* ---------- render mode row (radius/diameter or pipa mode) ---------- */
+function renderModeRow(){
+  modeRow.innerHTML = '';
+  if(RADIUS_SHAPES.includes(currentShape)){
+    const div = document.createElement('div');
+    div.className = 'field';
+    div.innerHTML = `<label>Tipe ukuran</label>
+      <div class="toggle-strip" id="radiusModeGrid" style="grid-template-columns:repeat(2,1fr);">
+        <div class="toggle-btn ${radiusMode==='r'?'active':''}" data-mode="r">JARI-JARI (R)</div>
+        <div class="toggle-btn ${radiusMode==='d'?'active':''}" data-mode="d">DIAMETER (D)</div>
+      </div>`;
+    modeRow.appendChild(div);
+    document.getElementById('radiusModeGrid').querySelectorAll('.toggle-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        radiusMode = btn.dataset.mode;
+        fieldUnits = {};
+        renderModeRow();
+        renderDimFields();
+        calculate();
+      });
+    });
+  } else if(currentShape === 'pipa'){
+    const div = document.createElement('div');
+    div.className = 'field';
+    div.innerHTML = `<label>Cara input pipa</label>
+      <div class="toggle-strip" id="pipaModeGrid" style="grid-template-columns:1fr;">
+        <div class="toggle-btn ${pipaMode==='rr'?'active':''}" data-mode="rr">R LUAR & R DALAM</div>
+        <div class="toggle-btn ${pipaMode==='dd'?'active':''}" data-mode="dd">D LUAR & D DALAM</div>
+        <div class="toggle-btn ${pipaMode==='dt'?'active':''}" data-mode="dt">D LUAR & TEBAL DINDING</div>
+      </div>`;
+    modeRow.appendChild(div);
+    document.getElementById('pipaModeGrid').querySelectorAll('.toggle-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        pipaMode = btn.dataset.mode;
+        fieldUnits = {};
+        renderModeRow();
+        renderDimFields();
+        calculate();
+      });
+    });
+  }
+}
+
+/* ---------- render dimension fields ---------- */
+function renderDimFields(){
+  dimFields.innerHTML = '';
+  let fields = [];
+
+  if(currentShape === 'kubus'){
+    fields = [{id:'s', label:'Sisi'}];
+  } else if(currentShape === 'balok'){
+    fields = [{id:'p', label:'Panjang'},{id:'l', label:'Lebar'},{id:'t', label:'Tinggi'}];
+  } else if(RADIUS_SHAPES.includes(currentShape)){
+    const rLabel = radiusMode === 'd' ? 'Diameter' : 'Jari-jari';
+    if(currentShape === 'tabung') fields = [{id:'R_in', label:rLabel}, {id:'t', label:'Tinggi'}];
+    if(currentShape === 'bola')   fields = [{id:'R_in', label:rLabel}];
+    if(currentShape === 'kerucut')fields = [{id:'R_in', label:rLabel+' alas'}, {id:'t', label:'Tinggi'}];
+  } else if(currentShape === 'pipa'){
+    if(pipaMode === 'rr') fields = [{id:'Rl_in', label:'Jari-jari luar (R)'}, {id:'Rd_in', label:'Jari-jari dalam (r)'}, {id:'t', label:'Panjang pipa'}];
+    if(pipaMode === 'dd') fields = [{id:'Dl_in', label:'Diameter luar (D)'}, {id:'Dd_in', label:'Diameter dalam (d)'}, {id:'t', label:'Panjang pipa'}];
+    if(pipaMode === 'dt') fields = [{id:'Dl_in', label:'Diameter luar (D)'}, {id:'Tb_in', label:'Tebal dinding'}, {id:'t', label:'Panjang pipa'}];
+  } else if(currentShape === 'iwf'){
+    fields = [{id:'tb', label:'Tebal (t) — flange & web'}, {id:'b', label:'Lebar sayap (B)'}, {id:'h', label:'Tinggi profil (T)'}, {id:'l', label:'Panjang batang (P)'}];
+  } else if(currentShape === 'hollow'){
+    fields = [{id:'tb', label:'Tebal dinding (t)'}, {id:'w', label:'Lebar (L)'}, {id:'h', label:'Tinggi (T)'}, {id:'l', label:'Panjang (P)'}];
+  }
+
+  // selalu 1 kolom vertikal — tiap field sudah punya input + dropdown satuan sendiri,
+  // kalau dipaksa 2 kolom jadi sempit dan dropdown kepotong di HP
+  fields.forEach(f=> dimFields.appendChild(fieldRow(f.id, f.label)));
+
+  dimFields.querySelectorAll('input[data-dim]').forEach(inp=> inp.addEventListener('input', calculate));
+  dimFields.querySelectorAll('select[data-unit-for]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      fieldUnits[sel.dataset.unitFor] = sel.value;
+      calculate();
+    });
+  });
+}
+
+/* ---------- read raw inputs (value + unit + cm-converted) ---------- */
+function readRaw(id){
+  const inp = dimFields.querySelector(`input[data-dim="${id}"]`);
+  const val = inp ? parseFloat(inp.value) : NaN;
+  const raw = isNaN(val) ? 0 : Math.max(0, val); // dimensi tidak boleh negatif
+  const unit = fieldUnits[id] || 'cm';
+  const cm = raw * cmPerUnit[unit];
+  return { raw, unit, cm };
+}
+
+/* ---------- resolve dims (cm) + build meta for solution ---------- */
+function resolveDims(){
+  const meta = { shape: currentShape };
+  let dimsCm = {};
+
+  if(currentShape === 'kubus'){
+    const s = readRaw('s');
+    dimsCm = { s: s.cm };
+    meta.parts = [{label:'Sisi (s)', ...s}];
+  }
+  else if(currentShape === 'balok'){
+    const p = readRaw('p'), l = readRaw('l'), t = readRaw('t');
+    dimsCm = { p: p.cm, l: l.cm, t: t.cm };
+    meta.parts = [{label:'Panjang (p)', ...p},{label:'Lebar (l)', ...l},{label:'Tinggi (t)', ...t}];
+  }
+  else if(RADIUS_SHAPES.includes(currentShape)){
+    const rin = readRaw('R_in');
+    const R_cm = radiusMode === 'd' ? rin.cm/2 : rin.cm;
+    meta.radiusMode = radiusMode;
+    meta.rawR = rin;
+    meta.R_cm = R_cm;
+    if(currentShape === 'tabung'){
+      const t = readRaw('t');
+      dimsCm = { R: R_cm, t: t.cm };
+      meta.parts = [{label:'Tinggi (t)', ...t}];
+    } else if(currentShape === 'bola'){
+      dimsCm = { R: R_cm };
+      meta.parts = [];
+    } else if(currentShape === 'kerucut'){
+      const t = readRaw('t');
+      dimsCm = { R: R_cm, t: t.cm };
+      meta.parts = [{label:'Tinggi (t)', ...t}];
+    }
+  }
+  else if(currentShape === 'pipa'){
+    meta.pipaMode = pipaMode;
+    const t = readRaw('t');
+    let rl_cm, rd_cm, rawRl, rawRd, rawTb;
+    if(pipaMode === 'rr'){
+      rawRl = readRaw('Rl_in'); rawRd = readRaw('Rd_in');
+      rl_cm = rawRl.cm; rd_cm = rawRd.cm;
+    } else if(pipaMode === 'dd'){
+      rawRl = readRaw('Dl_in'); rawRd = readRaw('Dd_in');
+      rl_cm = rawRl.cm/2; rd_cm = rawRd.cm/2;
+    } else if(pipaMode === 'dt'){
+      rawRl = readRaw('Dl_in'); rawTb = readRaw('Tb_in');
+      rl_cm = rawRl.cm/2; rd_cm = rl_cm - rawTb.cm;
+    }
+    dimsCm = { rl: rl_cm, rd: rd_cm, t: t.cm };
+    meta.rawRl = rawRl; meta.rawRd = rawRd; meta.rawTb = rawTb;
+    meta.rl_cm = rl_cm; meta.rd_cm = rd_cm;
+    meta.parts = [{label:'Panjang (t)', ...t}];
+  }
+  else if(currentShape === 'iwf'){
+    const tb = readRaw('tb'), b = readRaw('b'), h = readRaw('h'), l = readRaw('l');
+    dimsCm = { t: tb.cm, b: b.cm, h: h.cm, l: l.cm };
+    meta.parts = [{label:'Tebal (t)', ...tb},{label:'Lebar sayap (B)', ...b},{label:'Tinggi profil (T)', ...h},{label:'Panjang (P)', ...l}];
+  }
+  else if(currentShape === 'hollow'){
+    const tb = readRaw('tb'), w = readRaw('w'), h = readRaw('h'), l = readRaw('l');
+    dimsCm = { t: tb.cm, w: w.cm, h: h.cm, l: l.cm };
+    meta.parts = [{label:'Tebal dinding (t)', ...tb},{label:'Lebar (L)', ...w},{label:'Tinggi (T)', ...h},{label:'Panjang (P)', ...l}];
+  }
+
+  return { dimsCm, meta };
+}
+
+/* ---------- listeners: shape, material, mass unit, qty ---------- */
+shapeGrid.querySelectorAll('.toggle-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    shapeGrid.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentShape = btn.dataset.shape;
+    fieldUnits = {};
+    renderModeRow();
+    renderDimFields();
+    calculate();
+  });
+});
+
+materialSelect.addEventListener('change', ()=>{
+  const idx = materialSelect.value;
+  customDensWrap.classList.toggle('show', materials[idx].d === null);
+  calculate();
+});
+customDens.addEventListener('input', calculate);
+qtyInput.addEventListener('input', calculate);
+wadahInput.addEventListener('input', calculate);
+toleransiInput.addEventListener('input', calculate);
+
+massUnitGrid.querySelectorAll('.toggle-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    massUnitGrid.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    massUnit = btn.dataset.unit;
+    calculate();
+  });
+});
+
+/* ---------- main calculate ---------- */
+function calculate(){
+  const { dimsCm, meta } = resolveDims();
+  const volume = volumeFns[currentShape](dimsCm); // cm3
+
+  const idx = materialSelect.value;
+  let density = materials[idx].d; // g/cm3
+  if(density === null){
+    const customKgM3 = parseFloat(customDens.value);
+    density = isNaN(customKgM3) ? 0 : Math.max(0, customKgM3) / 1000;
+  }
+
+  const massSingle = volume * density; // gram, 1 pcs
+  const qty = Math.max(1, parseInt(qtyInput.value) || 1);
+  const massTotal = massSingle * qty; // gram, "massa benda" murni
+
+  const wadahKg = Math.max(0, parseFloat(wadahInput.value) || 0);
+  const wadahG = wadahKg * 1000;
+  const toleransiPct = Math.max(0, parseFloat(toleransiInput.value) || 0);
+
+  const bebanAsli = massTotal + wadahG;           // benda + wadah, sebelum toleransi
+  const toleransiG = bebanAsli * (toleransiPct/100);
+  const bebanAkhir = bebanAsli + toleransiG;       // hasil final
+
+  outVolume.textContent = `${fmt(volume,4)} cm³`;
+  outDensity.textContent = `${Math.round(density*1000)} kg/m³`;
+  outQty.textContent = `${qty} pcs`;
+
+  function formatMass(g){
+    if(massUnit === 'imperial'){
+      const oz = g/28.3495, lbs = g/453.592;
+      return g >= 453.592 ? `${fmt(lbs,3)} lbs` : `${fmt(oz,3)} oz`;
+    }
+    const fU = autoUnit(g);
+    return `${fmt(fU.val,3)} ${fU.unit}`;
+  }
+
+  outMass.textContent = formatMass(massTotal);
+
+  rowWadah.style.display = wadahKg > 0 ? 'flex' : 'none';
+  rowToleransi.style.display = toleransiPct > 0 ? 'flex' : 'none';
+  outWadah.textContent = `${fmt(wadahKg,3)} kg`;
+  outToleransi.textContent = `${fmt(toleransiPct,2)}% (${formatMass(toleransiG)})`;
+
+  finalLabel.textContent = (wadahKg>0 || toleransiPct>0) ? 'Beban akhir (+ wadah/toleransi)' : 'Beban akhir';
+  outFinal.textContent = formatMass(bebanAkhir);
+
+  buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal, wadahKg, wadahG, toleransiPct, toleransiG, bebanAsli, bebanAkhir, formatMass);
+}
+
+/* ---------- solution builder ---------- */
+function convLine(label, part){
+  if(part.unit === 'cm') return `${label}: ${fmt(part.raw)} cm (langsung, tidak perlu konversi)`;
+  return `${label}: ${fmt(part.raw)} ${unitLabel[part.unit]} × ${cmPerUnit[part.unit]} = ${fmt(part.cm)} cm`;
+}
+
+function buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal, wadahKg, wadahG, toleransiPct, toleransiG, bebanAsli, bebanAkhir, formatMass){
+  let html = '';
+  let n = 1;
+
+  html += `<div class="step-label">${n++}. Rumus volume (${shapeLabel[currentShape]})</div>`;
+  html += `<div class="step-line">${formulaText[currentShape]}</div>`;
+  if(currentShape === 'iwf'){
+    html += `<div class="step-note">Pendekatan lapangan: sayap (flange) atas+bawah dianggap 2 pelat selebar B tebal t, badan (web) dianggap 1 pelat setinggi (T−2t) tebal t</div>`;
+  } else if(currentShape === 'hollow'){
+    html += `<div class="step-note">Hollow (pipa kotak) dihitung seperti pipa bulat: luas penampang = luas persegi luar − luas persegi dalam</div>`;
+  } else {
+    html += `<div class="step-note">R = jari-jari (luar, kalau berongga) &nbsp; r = jari-jari dalam</div>`;
+  }
+
+  // konversi satuan
+  html += `<div class="step-label">${n++}. Konversi satuan ke cm</div>`;
+  if(RADIUS_SHAPES.includes(currentShape)){
+    const rawR = meta.rawR;
+    const rTypeLabel = meta.radiusMode === 'd' ? 'Diameter (D)' : 'Jari-jari (R)';
+    html += `<div class="step-line">${convLine(rTypeLabel, rawR)}</div>`;
+    if(meta.radiusMode === 'd'){
+      html += `<div class="step-line">R = D ÷ 2 = ${fmt(rawR.cm)} ÷ 2 = ${fmt(meta.R_cm)} cm</div>`;
+    }
+  }
+  if(currentShape === 'pipa'){
+    if(meta.pipaMode === 'rr'){
+      html += `<div class="step-line">${convLine('R luar', meta.rawRl)}</div>`;
+      html += `<div class="step-line">${convLine('r dalam', meta.rawRd)}</div>`;
+    } else if(meta.pipaMode === 'dd'){
+      html += `<div class="step-line">${convLine('D luar', meta.rawRl)}</div>`;
+      html += `<div class="step-line">R = D luar ÷ 2 = ${fmt(meta.rawRl.cm)} ÷ 2 = ${fmt(meta.rl_cm)} cm</div>`;
+      html += `<div class="step-line">${convLine('D dalam', meta.rawRd)}</div>`;
+      html += `<div class="step-line">r = D dalam ÷ 2 = ${fmt(meta.rawRd.cm)} ÷ 2 = ${fmt(meta.rd_cm)} cm</div>`;
+    } else if(meta.pipaMode === 'dt'){
+      html += `<div class="step-line">${convLine('D luar', meta.rawRl)}</div>`;
+      html += `<div class="step-line">R = D luar ÷ 2 = ${fmt(meta.rawRl.cm)} ÷ 2 = ${fmt(meta.rl_cm)} cm</div>`;
+      html += `<div class="step-line">${convLine('Tebal dinding', meta.rawTb)}</div>`;
+      html += `<div class="step-line">r = R − tebal = ${fmt(meta.rl_cm)} − ${fmt(meta.rawTb.cm)} = ${fmt(meta.rd_cm)} cm</div>`;
+    }
+  }
+  meta.parts.forEach(p=>{
+    html += `<div class="step-line">${convLine(p.label, p)}</div>`;
+  });
+
+  // substitusi
+  html += `<div class="step-label">${n++}. Substitusi ke rumus</div>`;
+  let sub = '';
+  if(currentShape === 'kubus') sub = `V = ${fmt(dimsCm.s)}³`;
+  if(currentShape === 'balok') sub = `V = ${fmt(dimsCm.p)} × ${fmt(dimsCm.l)} × ${fmt(dimsCm.t)}`;
+  if(currentShape === 'tabung') sub = `V = ${PI_APPROX} × ${fmt(dimsCm.R)}² × ${fmt(dimsCm.t)}`;
+  if(currentShape === 'bola') sub = `V = (4/3) × ${PI_APPROX} × ${fmt(dimsCm.R)}³`;
+  if(currentShape === 'kerucut') sub = `V = (1/3) × ${PI_APPROX} × ${fmt(dimsCm.R)}² × ${fmt(dimsCm.t)}`;
+  if(currentShape === 'pipa') sub = `V = ${PI_APPROX} × (${fmt(dimsCm.rl)}² − ${fmt(dimsCm.rd)}²) × ${fmt(dimsCm.t)}`;
+  if(currentShape === 'iwf') sub = `V = [(2 × ${fmt(dimsCm.b)} × ${fmt(dimsCm.t)}) + ((${fmt(dimsCm.h)} − 2×${fmt(dimsCm.t)}) × ${fmt(dimsCm.t)})] × ${fmt(dimsCm.l)}`;
+  if(currentShape === 'hollow') sub = `V = [(${fmt(dimsCm.w)} × ${fmt(dimsCm.h)}) − ((${fmt(dimsCm.w)}−2×${fmt(dimsCm.t)}) × (${fmt(dimsCm.h)}−2×${fmt(dimsCm.t)}))] × ${fmt(dimsCm.l)}`;
+  html += `<div class="step-line">${sub}</div>`;
+
+  if(currentShape === 'pipa'){
+    html += `<div class="step-note">R² (luar) = ${fmt(dimsCm.rl)}² = ${fmt(Math.pow(dimsCm.rl,2))} &nbsp; r² (dalam) = ${fmt(dimsCm.rd)}² = ${fmt(Math.pow(dimsCm.rd,2))}</div>`;
+    html += `<div class="step-note">R² − r² = ${fmt(Math.pow(dimsCm.rl,2))} − ${fmt(Math.pow(dimsCm.rd,2))} = ${fmt(Math.pow(dimsCm.rl,2)-Math.pow(dimsCm.rd,2))}</div>`;
+  }
+  if(currentShape === 'iwf'){
+    const areaFlange = 2*dimsCm.b*dimsCm.t;
+    const areaWeb = Math.max(dimsCm.h-2*dimsCm.t,0)*dimsCm.t;
+    html += `<div class="step-note">Luas sayap (2×B×t) = ${fmt(areaFlange)} cm² &nbsp; Luas badan ((T−2t)×t) = ${fmt(areaWeb)} cm²</div>`;
+    html += `<div class="step-note">Luas penampang total = ${fmt(areaFlange)} + ${fmt(areaWeb)} = ${fmt(areaFlange+areaWeb)} cm²</div>`;
+  }
+  if(currentShape === 'hollow'){
+    const areaLuar = dimsCm.w*dimsCm.h;
+    const areaDalam = Math.max(dimsCm.w-2*dimsCm.t,0)*Math.max(dimsCm.h-2*dimsCm.t,0);
+    html += `<div class="step-note">Luas persegi luar (L×T) = ${fmt(areaLuar)} cm² &nbsp; Luas persegi dalam ((L−2t)×(T−2t)) = ${fmt(areaDalam)} cm²</div>`;
+    html += `<div class="step-note">Luas penampang = ${fmt(areaLuar)} − ${fmt(areaDalam)} = ${fmt(areaLuar-areaDalam)} cm²</div>`;
+  }
+
+  html += `<div class="step-label">${n++}. Hasil volume (1 pcs)</div>`;
+  html += `<div class="step-line">V = ${fmt(volume)} cm³</div>`;
+
+  html += `<div class="step-label">${n++}. Massa jenis</div>`;
+  html += `<div class="step-line">ρ = ${Math.round(density*1000)} kg/m³ = ${fmt(density)} g/cm³</div>`;
+  html += `<div class="step-note">(÷1000 karena 1 m³ = 1.000.000 cm³ dan 1 kg = 1000 g)</div>`;
+
+  html += `<div class="step-label">${n++}. Massa per 1 pcs</div>`;
+  html += `<div class="step-line">m = V × ρ = ${fmt(volume)} × ${fmt(density)} = ${fmt(massSingle)} gram</div>`;
+  const singleU = autoUnit(massSingle);
+  if(singleU.unit === 'gram'){
+    html += `<div class="step-note">m tetap dalam gram (kurang dari 1000 g)</div>`;
+  } else {
+    html += `<div class="step-note">m gram convert ke ${singleU.unit}</div>`;
+    html += `<div class="step-line">m = ${fmt(massSingle)} gram ÷ ${singleU.divisor.toLocaleString('id-ID')} = ${fmt(singleU.val)} ${singleU.unit}</div>`;
+  }
+
+  if(qty > 1){
+    html += `<div class="step-label">${n++}. Total untuk ${qty} pcs</div>`;
+    const totalU = autoUnit(massTotal);
+    if(singleU.unit === 'gram'){
+      html += `<div class="step-line">m total = ${fmt(massSingle)} gram × ${qty} = ${fmt(massTotal)} gram</div>`;
+      if(totalU.unit !== 'gram'){
+        html += `<div class="step-note">total ternyata sudah lewat 1000 g → convert ke ${totalU.unit}</div>`;
+        html += `<div class="step-line">m total = ${fmt(massTotal)} gram ÷ ${totalU.divisor.toLocaleString('id-ID')} = ${fmt(totalU.val)} ${totalU.unit}</div>`;
+      }
+    } else {
+      html += `<div class="step-line">m total = ${fmt(singleU.val)} ${singleU.unit} × ${qty} = ${fmt(massTotal/singleU.divisor)} ${singleU.unit}</div>`;
+      if(totalU.unit !== singleU.unit){
+        html += `<div class="step-note">total sudah lewat batas ${singleU.unit} → convert ke ${totalU.unit}</div>`;
+        html += `<div class="step-line">m total = ${fmt(totalU.val)} ${totalU.unit}</div>`;
+      }
+    }
+  }
+
+  html += `<div class="step-label">${n++}. Massa benda (murni, tanpa wadah/toleransi)</div>`;
+  html += `<div class="step-line">m benda = ${formatMass(massTotal)}${qty>1 ? ` (untuk ${qty} pcs)` : ''}</div>`;
+
+  if(wadahKg > 0){
+    html += `<div class="step-label">${n++}. Tambah berat wadah/kemasan</div>`;
+    html += `<div class="step-line">beban asli = m benda + berat wadah = ${formatMass(massTotal)} + ${fmt(wadahKg,3)} kg = ${formatMass(bebanAsli)}</div>`;
+    html += `<div class="step-note">berat wadah/kemasan ikut ditimbang di lapangan, jadi ditambahkan langsung ke berat benda, bukan bagian dari volume/massa jenis</div>`;
+  } else {
+    html += `<div class="step-note">tidak ada berat wadah tambahan → beban asli = m benda</div>`;
+  }
+
+  if(toleransiPct > 0){
+    html += `<div class="step-label">${n++}. Tambah toleransi beban (${fmt(toleransiPct,2)}%)</div>`;
+    html += `<div class="step-line">toleransi = beban asli × ${fmt(toleransiPct,2)}% = ${formatMass(bebanAsli)} × ${fmt(toleransiPct,2)}% = ${formatMass(toleransiG)}</div>`;
+    html += `<div class="step-line">beban akhir = beban asli + toleransi = ${formatMass(bebanAsli)} + ${formatMass(toleransiG)} = ${formatMass(bebanAkhir)}</div>`;
+    html += `<div class="step-note">toleransi selalu DITAMBAHKAN ke beban asli (bukan dikurangi), untuk mengantisipasi kelebihan ukuran/berat aktual di lapangan (mill tolerance, pembulatan dimensi, penyusutan pemotongan, dll)</div>`;
+  } else {
+    html += `<div class="step-note">tidak ada toleransi → beban akhir = beban asli</div>`;
+  }
+
+  let finalText = `m = ${formatMass(bebanAkhir)}`;
+  if(qty > 1) finalText += ` (untuk ${qty} pcs`;
+  if(qty > 1 && (wadahKg>0)) finalText += ` + wadah`;
+  if(qty > 1 && (toleransiPct>0)) finalText += ` + toleransi ${fmt(toleransiPct,2)}%`;
+  if(qty > 1) finalText += `)`;
+  else if(wadahKg>0 || toleransiPct>0) finalText += ` (termasuk wadah/toleransi)`;
+  html += `<div class="step-final">HASIL AKHIR: ${finalText}</div>`;
+
+  solutionBox.innerHTML = html;
+}
+
+/* ---------- init ---------- */
+const d = new Date();
+serial.textContent = `SN—${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+
+renderModeRow();
+renderDimFields();
+customDensWrap.classList.toggle('show', materials[0].d === null);
+calculate();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
