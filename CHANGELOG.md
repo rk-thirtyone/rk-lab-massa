@@ -1,6 +1,6 @@
 # Changelog — RK-Lab Mass Calc (mass-calc_v5.html)
 
-## [Unreleased] — Perubahan basis satuan (meter & kg)
+## [Released] — Perubahan basis satuan (meter & kg)
 
 ### Diubah
 - **Basis dimensi internal**: dari **cm** → **meter**. Semua input dimensi (mm/cm/m/ft) tetap bisa dipilih bebas per kolom seperti biasa, tapi sekarang dikonversi ke meter dulu sebelum dihitung volumenya (sebelumnya dikonversi ke cm).
