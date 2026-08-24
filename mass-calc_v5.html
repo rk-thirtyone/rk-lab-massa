@@ -266,18 +266,18 @@
     <div class="panel">
       <div class="panel-head"><span class="idx">4</span>HASIL BACAAN</div>
       <div class="toggle-strip" id="massUnitGrid" style="grid-template-columns:repeat(2,1fr); margin-bottom:12px;">
-        <div class="toggle-btn active" data-unit="metric">GRAM / KG</div>
+        <div class="toggle-btn active" data-unit="metric">KG / TON</div>
         <div class="toggle-btn" data-unit="imperial">OZ / LBS</div>
       </div>
       <div class="lcd">
-        <div class="lcd-row"><span class="lcd-label">Volume (1 pcs)</span><span class="lcd-value" id="outVolume">0.000 cm³</span></div>
+        <div class="lcd-row"><span class="lcd-label">Volume (1 pcs)</span><span class="lcd-value" id="outVolume">0,00000000 m³</span></div>
         <div class="lcd-row"><span class="lcd-label">Massa jenis</span><span class="lcd-value" id="outDensity">0 kg/m³</span></div>
         <div class="lcd-row"><span class="lcd-label">Jumlah</span><span class="lcd-value" id="outQty">1 pcs</span></div>
-        <div class="lcd-row"><span class="lcd-label">Massa benda</span><span class="lcd-value" id="outMass">0.000 g</span></div>
+        <div class="lcd-row"><span class="lcd-label">Massa benda</span><span class="lcd-value" id="outMass">0,000 kg</span></div>
         <div class="lcd-row" id="rowWadah" style="display:none;"><span class="lcd-label">Berat wadah</span><span class="lcd-value" id="outWadah">0 kg</span></div>
         <div class="lcd-row" id="rowToleransi" style="display:none;"><span class="lcd-label">Toleransi</span><span class="lcd-value" id="outToleransi">0%</span></div>
         <div class="lcd-row"><span class="lcd-label" id="finalLabel">Beban akhir</span></div>
-        <div class="lcd-main"><span class="lcd-value" id="outFinal">0.000 g</span></div>
+        <div class="lcd-main"><span class="lcd-value" id="outFinal">0,000 kg</span></div>
       </div>
     </div>
 
@@ -298,7 +298,7 @@
 <script>
 /* ---------- konstanta ---------- */
 const PI_APPROX = 3.14;
-const cmPerUnit = { mm: 0.1, cm: 1, m: 100, ft: 30.48 };
+const mPerUnit = { mm: 0.001, cm: 0.01, m: 1, ft: 0.3048 };
 const unitLabel = { mm: "mm", cm: "cm", m: "m", ft: "ft" };
 
 const materials = [
@@ -418,11 +418,12 @@ function fmt(n, maxDec){
   return s.replace('.',',');
 }
 
-// pilih satuan massa otomatis: gram (<1000g) / kg (<1.000.000g) / ton (>=1.000.000g)
-function autoUnit(grams){
-  if(grams >= 1000000) return { val: grams/1000000, unit:'ton', divisor:1000000 };
-  if(grams >= 1000)    return { val: grams/1000,    unit:'kg',  divisor:1000 };
-  return { val: grams, unit:'gram', divisor:1 };
+// preferensi satuan: KG selalu jadi basis. Kalau nilainya besar (>=1000 kg / 1 ton),
+// tambahkan konversi ke ton sebagai info tambahan, tapi kg tetap dicantumkan.
+// catatan: fungsi ini menerima nilai yang SUDAH dalam kg (karena volume m³ × densitas kg/m³ = kg langsung)
+function autoUnit(kg){
+  if(kg >= 1000) return { val: kg, unit:'kg', ton: kg/1000 };
+  return { val: kg, unit:'kg', ton: null };
 }
 
 function unitSelectHtml(fieldId){
@@ -440,7 +441,7 @@ function fieldRow(id, label){
   div.className = 'field';
   div.innerHTML = `<label>${label}</label>
     <div class="input-unit-row">
-      <input type="number" step="0.01" min="0" data-dim="${id}" placeholder="0">
+      <input type="number" step="0.01" data-dim="${id}" placeholder="0">
       ${unitSelectHtml(id)}
     </div>`;
   return div;
@@ -526,81 +527,81 @@ function renderDimFields(){
   });
 }
 
-/* ---------- read raw inputs (value + unit + cm-converted) ---------- */
+/* ---------- read raw inputs (value + unit + m-converted) ---------- */
 function readRaw(id){
   const inp = dimFields.querySelector(`input[data-dim="${id}"]`);
   const val = inp ? parseFloat(inp.value) : NaN;
-  const raw = isNaN(val) ? 0 : Math.max(0, val); // dimensi tidak boleh negatif
+  const raw = isNaN(val) ? 0 : val;
   const unit = fieldUnits[id] || 'cm';
-  const cm = raw * cmPerUnit[unit];
-  return { raw, unit, cm };
+  const m = raw * mPerUnit[unit];
+  return { raw, unit, m };
 }
 
-/* ---------- resolve dims (cm) + build meta for solution ---------- */
+/* ---------- resolve dims (m) + build meta for solution ---------- */
 function resolveDims(){
   const meta = { shape: currentShape };
-  let dimsCm = {};
+  let dimsM = {};
 
   if(currentShape === 'kubus'){
     const s = readRaw('s');
-    dimsCm = { s: s.cm };
+    dimsM = { s: s.m };
     meta.parts = [{label:'Sisi (s)', ...s}];
   }
   else if(currentShape === 'balok'){
     const p = readRaw('p'), l = readRaw('l'), t = readRaw('t');
-    dimsCm = { p: p.cm, l: l.cm, t: t.cm };
+    dimsM = { p: p.m, l: l.m, t: t.m };
     meta.parts = [{label:'Panjang (p)', ...p},{label:'Lebar (l)', ...l},{label:'Tinggi (t)', ...t}];
   }
   else if(RADIUS_SHAPES.includes(currentShape)){
     const rin = readRaw('R_in');
-    const R_cm = radiusMode === 'd' ? rin.cm/2 : rin.cm;
+    const R_m = radiusMode === 'd' ? rin.m/2 : rin.m;
     meta.radiusMode = radiusMode;
     meta.rawR = rin;
-    meta.R_cm = R_cm;
+    meta.R_m = R_m;
     if(currentShape === 'tabung'){
       const t = readRaw('t');
-      dimsCm = { R: R_cm, t: t.cm };
+      dimsM = { R: R_m, t: t.m };
       meta.parts = [{label:'Tinggi (t)', ...t}];
     } else if(currentShape === 'bola'){
-      dimsCm = { R: R_cm };
+      dimsM = { R: R_m };
       meta.parts = [];
     } else if(currentShape === 'kerucut'){
       const t = readRaw('t');
-      dimsCm = { R: R_cm, t: t.cm };
+      dimsM = { R: R_m, t: t.m };
       meta.parts = [{label:'Tinggi (t)', ...t}];
     }
   }
   else if(currentShape === 'pipa'){
     meta.pipaMode = pipaMode;
     const t = readRaw('t');
-    let rl_cm, rd_cm, rawRl, rawRd, rawTb;
+    let rl_m, rd_m, rawRl, rawRd, rawTb;
     if(pipaMode === 'rr'){
       rawRl = readRaw('Rl_in'); rawRd = readRaw('Rd_in');
-      rl_cm = rawRl.cm; rd_cm = rawRd.cm;
+      rl_m = rawRl.m; rd_m = rawRd.m;
     } else if(pipaMode === 'dd'){
       rawRl = readRaw('Dl_in'); rawRd = readRaw('Dd_in');
-      rl_cm = rawRl.cm/2; rd_cm = rawRd.cm/2;
+      rl_m = rawRl.m/2; rd_m = rawRd.m/2;
     } else if(pipaMode === 'dt'){
       rawRl = readRaw('Dl_in'); rawTb = readRaw('Tb_in');
-      rl_cm = rawRl.cm/2; rd_cm = rl_cm - rawTb.cm;
+      rl_m = rawRl.m/2; rd_m = rl_m - rawTb.m;
     }
-    dimsCm = { rl: rl_cm, rd: rd_cm, t: t.cm };
+    dimsM = { rl: rl_m, rd: rd_m, t: t.m };
     meta.rawRl = rawRl; meta.rawRd = rawRd; meta.rawTb = rawTb;
-    meta.rl_cm = rl_cm; meta.rd_cm = rd_cm;
+    meta.rl_m = rl_m; meta.rd_m = rd_m;
     meta.parts = [{label:'Panjang (t)', ...t}];
   }
   else if(currentShape === 'iwf'){
     const tb = readRaw('tb'), b = readRaw('b'), h = readRaw('h'), l = readRaw('l');
-    dimsCm = { t: tb.cm, b: b.cm, h: h.cm, l: l.cm };
+    dimsM = { t: tb.m, b: b.m, h: h.m, l: l.m };
     meta.parts = [{label:'Tebal (t)', ...tb},{label:'Lebar sayap (B)', ...b},{label:'Tinggi profil (T)', ...h},{label:'Panjang (P)', ...l}];
   }
   else if(currentShape === 'hollow'){
     const tb = readRaw('tb'), w = readRaw('w'), h = readRaw('h'), l = readRaw('l');
-    dimsCm = { t: tb.cm, w: w.cm, h: h.cm, l: l.cm };
+    dimsM = { t: tb.m, w: w.m, h: h.m, l: l.m };
     meta.parts = [{label:'Tebal dinding (t)', ...tb},{label:'Lebar (L)', ...w},{label:'Tinggi (T)', ...h},{label:'Panjang (P)', ...l}];
   }
 
-  return { dimsCm, meta };
+  return { dimsM, meta };
 }
 
 /* ---------- listeners: shape, material, mass unit, qty ---------- */
@@ -637,39 +638,44 @@ massUnitGrid.querySelectorAll('.toggle-btn').forEach(btn=>{
 
 /* ---------- main calculate ---------- */
 function calculate(){
-  const { dimsCm, meta } = resolveDims();
-  const volume = volumeFns[currentShape](dimsCm); // cm3
+  const { dimsM, meta } = resolveDims();
+  const volume = volumeFns[currentShape](dimsM); // m3
 
   const idx = materialSelect.value;
-  let density = materials[idx].d; // g/cm3
-  if(density === null){
+  let density = materials[idx].d * 1000; // materials[].d disimpan dalam g/cm³ → ×1000 jadi kg/m³
+  if(materials[idx].d === null){
     const customKgM3 = parseFloat(customDens.value);
-    density = isNaN(customKgM3) ? 0 : Math.max(0, customKgM3) / 1000;
+    density = isNaN(customKgM3) ? 0 : customKgM3; // input custom sudah dalam kg/m³
   }
 
-  const massSingle = volume * density; // gram, 1 pcs
+  const massSingle = volume * density; // kg, 1 pcs (m³ × kg/m³ = kg langsung)
   const qty = Math.max(1, parseInt(qtyInput.value) || 1);
-  const massTotal = massSingle * qty; // gram, "massa benda" murni
+  const massTotal = massSingle * qty; // kg, "massa benda" murni
 
   const wadahKg = Math.max(0, parseFloat(wadahInput.value) || 0);
-  const wadahG = wadahKg * 1000;
   const toleransiPct = Math.max(0, parseFloat(toleransiInput.value) || 0);
 
-  const bebanAsli = massTotal + wadahG;           // benda + wadah, sebelum toleransi
-  const toleransiG = bebanAsli * (toleransiPct/100);
-  const bebanAkhir = bebanAsli + toleransiG;       // hasil final
+  const bebanAsli = massTotal + wadahKg;           // benda + wadah, sebelum toleransi
+  const toleransiKg = bebanAsli * (toleransiPct/100);
+  const bebanAkhir = bebanAsli + toleransiKg;       // hasil final
 
-  outVolume.textContent = `${fmt(volume,4)} cm³`;
-  outDensity.textContent = `${Math.round(density*1000)} kg/m³`;
+  outVolume.textContent = `${fmt(volume, Math.abs(volume)<1?8:4)} m³`;
+  outDensity.textContent = `${Math.round(density)} kg/m³`;
   outQty.textContent = `${qty} pcs`;
 
-  function formatMass(g){
+  function formatMass(kg){
     if(massUnit === 'imperial'){
+      const g = kg*1000;
       const oz = g/28.3495, lbs = g/453.592;
       return g >= 453.592 ? `${fmt(lbs,3)} lbs` : `${fmt(oz,3)} oz`;
     }
-    const fU = autoUnit(g);
-    return `${fmt(fU.val,3)} ${fU.unit}`;
+    const u = autoUnit(kg);
+    const dec = Math.abs(u.val) < 1 ? 5 : 3; // biar nilai kecil (di bawah 1 kg) ga hilang presisi
+    let text = `${fmt(u.val,dec)} kg`;
+    if(u.ton !== null){
+      text += ` (≈ ${fmt(u.ton,3)} ton)`;
+    }
+    return text;
   }
 
   outMass.textContent = formatMass(massTotal);
@@ -677,21 +683,21 @@ function calculate(){
   rowWadah.style.display = wadahKg > 0 ? 'flex' : 'none';
   rowToleransi.style.display = toleransiPct > 0 ? 'flex' : 'none';
   outWadah.textContent = `${fmt(wadahKg,3)} kg`;
-  outToleransi.textContent = `${fmt(toleransiPct,2)}% (${formatMass(toleransiG)})`;
+  outToleransi.textContent = `${fmt(toleransiPct,2)}% (${formatMass(toleransiKg)})`;
 
   finalLabel.textContent = (wadahKg>0 || toleransiPct>0) ? 'Beban akhir (+ wadah/toleransi)' : 'Beban akhir';
   outFinal.textContent = formatMass(bebanAkhir);
 
-  buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal, wadahKg, wadahG, toleransiPct, toleransiG, bebanAsli, bebanAkhir, formatMass);
+  buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal, wadahKg, toleransiPct, toleransiKg, bebanAsli, bebanAkhir, formatMass);
 }
 
 /* ---------- solution builder ---------- */
 function convLine(label, part){
-  if(part.unit === 'cm') return `${label}: ${fmt(part.raw)} cm (langsung, tidak perlu konversi)`;
-  return `${label}: ${fmt(part.raw)} ${unitLabel[part.unit]} × ${cmPerUnit[part.unit]} = ${fmt(part.cm)} cm`;
+  if(part.unit === 'm') return `${label}: ${fmt(part.raw)} m (langsung, tidak perlu konversi)`;
+  return `${label}: ${fmt(part.raw)} ${unitLabel[part.unit]} × ${mPerUnit[part.unit]} = ${fmt(part.m,6)} m`;
 }
 
-function buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal, wadahKg, wadahG, toleransiPct, toleransiG, bebanAsli, bebanAkhir, formatMass){
+function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal, wadahKg, toleransiPct, toleransiKg, bebanAsli, bebanAkhir, formatMass){
   let html = '';
   let n = 1;
 
@@ -706,13 +712,13 @@ function buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal
   }
 
   // konversi satuan
-  html += `<div class="step-label">${n++}. Konversi satuan ke cm</div>`;
+  html += `<div class="step-label">${n++}. Konversi satuan ke meter</div>`;
   if(RADIUS_SHAPES.includes(currentShape)){
     const rawR = meta.rawR;
     const rTypeLabel = meta.radiusMode === 'd' ? 'Diameter (D)' : 'Jari-jari (R)';
     html += `<div class="step-line">${convLine(rTypeLabel, rawR)}</div>`;
     if(meta.radiusMode === 'd'){
-      html += `<div class="step-line">R = D ÷ 2 = ${fmt(rawR.cm)} ÷ 2 = ${fmt(meta.R_cm)} cm</div>`;
+      html += `<div class="step-line">R = D ÷ 2 = ${fmt(rawR.m,6)} ÷ 2 = ${fmt(meta.R_m,6)} m</div>`;
     }
   }
   if(currentShape === 'pipa'){
@@ -721,14 +727,14 @@ function buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal
       html += `<div class="step-line">${convLine('r dalam', meta.rawRd)}</div>`;
     } else if(meta.pipaMode === 'dd'){
       html += `<div class="step-line">${convLine('D luar', meta.rawRl)}</div>`;
-      html += `<div class="step-line">R = D luar ÷ 2 = ${fmt(meta.rawRl.cm)} ÷ 2 = ${fmt(meta.rl_cm)} cm</div>`;
+      html += `<div class="step-line">R = D luar ÷ 2 = ${fmt(meta.rawRl.m,6)} ÷ 2 = ${fmt(meta.rl_m,6)} m</div>`;
       html += `<div class="step-line">${convLine('D dalam', meta.rawRd)}</div>`;
-      html += `<div class="step-line">r = D dalam ÷ 2 = ${fmt(meta.rawRd.cm)} ÷ 2 = ${fmt(meta.rd_cm)} cm</div>`;
+      html += `<div class="step-line">r = D dalam ÷ 2 = ${fmt(meta.rawRd.m,6)} ÷ 2 = ${fmt(meta.rd_m,6)} m</div>`;
     } else if(meta.pipaMode === 'dt'){
       html += `<div class="step-line">${convLine('D luar', meta.rawRl)}</div>`;
-      html += `<div class="step-line">R = D luar ÷ 2 = ${fmt(meta.rawRl.cm)} ÷ 2 = ${fmt(meta.rl_cm)} cm</div>`;
+      html += `<div class="step-line">R = D luar ÷ 2 = ${fmt(meta.rawRl.m,6)} ÷ 2 = ${fmt(meta.rl_m,6)} m</div>`;
       html += `<div class="step-line">${convLine('Tebal dinding', meta.rawTb)}</div>`;
-      html += `<div class="step-line">r = R − tebal = ${fmt(meta.rl_cm)} − ${fmt(meta.rawTb.cm)} = ${fmt(meta.rd_cm)} cm</div>`;
+      html += `<div class="step-line">r = R − tebal = ${fmt(meta.rl_m,6)} − ${fmt(meta.rawTb.m,6)} = ${fmt(meta.rd_m,6)} m</div>`;
     }
   }
   meta.parts.forEach(p=>{
@@ -738,65 +744,56 @@ function buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal
   // substitusi
   html += `<div class="step-label">${n++}. Substitusi ke rumus</div>`;
   let sub = '';
-  if(currentShape === 'kubus') sub = `V = ${fmt(dimsCm.s)}³`;
-  if(currentShape === 'balok') sub = `V = ${fmt(dimsCm.p)} × ${fmt(dimsCm.l)} × ${fmt(dimsCm.t)}`;
-  if(currentShape === 'tabung') sub = `V = ${PI_APPROX} × ${fmt(dimsCm.R)}² × ${fmt(dimsCm.t)}`;
-  if(currentShape === 'bola') sub = `V = (4/3) × ${PI_APPROX} × ${fmt(dimsCm.R)}³`;
-  if(currentShape === 'kerucut') sub = `V = (1/3) × ${PI_APPROX} × ${fmt(dimsCm.R)}² × ${fmt(dimsCm.t)}`;
-  if(currentShape === 'pipa') sub = `V = ${PI_APPROX} × (${fmt(dimsCm.rl)}² − ${fmt(dimsCm.rd)}²) × ${fmt(dimsCm.t)}`;
-  if(currentShape === 'iwf') sub = `V = [(2 × ${fmt(dimsCm.b)} × ${fmt(dimsCm.t)}) + ((${fmt(dimsCm.h)} − 2×${fmt(dimsCm.t)}) × ${fmt(dimsCm.t)})] × ${fmt(dimsCm.l)}`;
-  if(currentShape === 'hollow') sub = `V = [(${fmt(dimsCm.w)} × ${fmt(dimsCm.h)}) − ((${fmt(dimsCm.w)}−2×${fmt(dimsCm.t)}) × (${fmt(dimsCm.h)}−2×${fmt(dimsCm.t)}))] × ${fmt(dimsCm.l)}`;
+  if(currentShape === 'kubus') sub = `V = ${fmt(dimsM.s,6)}³`;
+  if(currentShape === 'balok') sub = `V = ${fmt(dimsM.p,6)} × ${fmt(dimsM.l,6)} × ${fmt(dimsM.t,6)}`;
+  if(currentShape === 'tabung') sub = `V = ${PI_APPROX} × ${fmt(dimsM.R,6)}² × ${fmt(dimsM.t,6)}`;
+  if(currentShape === 'bola') sub = `V = (4/3) × ${PI_APPROX} × ${fmt(dimsM.R,6)}³`;
+  if(currentShape === 'kerucut') sub = `V = (1/3) × ${PI_APPROX} × ${fmt(dimsM.R,6)}² × ${fmt(dimsM.t,6)}`;
+  if(currentShape === 'pipa') sub = `V = ${PI_APPROX} × (${fmt(dimsM.rl,6)}² − ${fmt(dimsM.rd,6)}²) × ${fmt(dimsM.t,6)}`;
+  if(currentShape === 'iwf') sub = `V = [(2 × ${fmt(dimsM.b,6)} × ${fmt(dimsM.t,6)}) + ((${fmt(dimsM.h,6)} − 2×${fmt(dimsM.t,6)}) × ${fmt(dimsM.t,6)})] × ${fmt(dimsM.l,6)}`;
+  if(currentShape === 'hollow') sub = `V = [(${fmt(dimsM.w,6)} × ${fmt(dimsM.h,6)}) − ((${fmt(dimsM.w,6)}−2×${fmt(dimsM.t,6)}) × (${fmt(dimsM.h,6)}−2×${fmt(dimsM.t,6)}))] × ${fmt(dimsM.l,6)}`;
   html += `<div class="step-line">${sub}</div>`;
 
   if(currentShape === 'pipa'){
-    html += `<div class="step-note">R² (luar) = ${fmt(dimsCm.rl)}² = ${fmt(Math.pow(dimsCm.rl,2))} &nbsp; r² (dalam) = ${fmt(dimsCm.rd)}² = ${fmt(Math.pow(dimsCm.rd,2))}</div>`;
-    html += `<div class="step-note">R² − r² = ${fmt(Math.pow(dimsCm.rl,2))} − ${fmt(Math.pow(dimsCm.rd,2))} = ${fmt(Math.pow(dimsCm.rl,2)-Math.pow(dimsCm.rd,2))}</div>`;
+    html += `<div class="step-note">R² (luar) = ${fmt(dimsM.rl,6)}² = ${fmt(Math.pow(dimsM.rl,2),8)} &nbsp; r² (dalam) = ${fmt(dimsM.rd,6)}² = ${fmt(Math.pow(dimsM.rd,2),8)}</div>`;
+    html += `<div class="step-note">R² − r² = ${fmt(Math.pow(dimsM.rl,2),8)} − ${fmt(Math.pow(dimsM.rd,2),8)} = ${fmt(Math.pow(dimsM.rl,2)-Math.pow(dimsM.rd,2),8)}</div>`;
   }
   if(currentShape === 'iwf'){
-    const areaFlange = 2*dimsCm.b*dimsCm.t;
-    const areaWeb = Math.max(dimsCm.h-2*dimsCm.t,0)*dimsCm.t;
-    html += `<div class="step-note">Luas sayap (2×B×t) = ${fmt(areaFlange)} cm² &nbsp; Luas badan ((T−2t)×t) = ${fmt(areaWeb)} cm²</div>`;
-    html += `<div class="step-note">Luas penampang total = ${fmt(areaFlange)} + ${fmt(areaWeb)} = ${fmt(areaFlange+areaWeb)} cm²</div>`;
+    const areaFlange = 2*dimsM.b*dimsM.t;
+    const areaWeb = Math.max(dimsM.h-2*dimsM.t,0)*dimsM.t;
+    html += `<div class="step-note">Luas sayap (2×B×t) = ${fmt(areaFlange,8)} m² &nbsp; Luas badan ((T−2t)×t) = ${fmt(areaWeb,8)} m²</div>`;
+    html += `<div class="step-note">Luas penampang total = ${fmt(areaFlange,8)} + ${fmt(areaWeb,8)} = ${fmt(areaFlange+areaWeb,8)} m²</div>`;
   }
   if(currentShape === 'hollow'){
-    const areaLuar = dimsCm.w*dimsCm.h;
-    const areaDalam = Math.max(dimsCm.w-2*dimsCm.t,0)*Math.max(dimsCm.h-2*dimsCm.t,0);
-    html += `<div class="step-note">Luas persegi luar (L×T) = ${fmt(areaLuar)} cm² &nbsp; Luas persegi dalam ((L−2t)×(T−2t)) = ${fmt(areaDalam)} cm²</div>`;
-    html += `<div class="step-note">Luas penampang = ${fmt(areaLuar)} − ${fmt(areaDalam)} = ${fmt(areaLuar-areaDalam)} cm²</div>`;
+    const areaLuar = dimsM.w*dimsM.h;
+    const areaDalam = Math.max(dimsM.w-2*dimsM.t,0)*Math.max(dimsM.h-2*dimsM.t,0);
+    html += `<div class="step-note">Luas persegi luar (L×T) = ${fmt(areaLuar,8)} m² &nbsp; Luas persegi dalam ((L−2t)×(T−2t)) = ${fmt(areaDalam,8)} m²</div>`;
+    html += `<div class="step-note">Luas penampang = ${fmt(areaLuar,8)} − ${fmt(areaDalam,8)} = ${fmt(areaLuar-areaDalam,8)} m²</div>`;
   }
 
   html += `<div class="step-label">${n++}. Hasil volume (1 pcs)</div>`;
-  html += `<div class="step-line">V = ${fmt(volume)} cm³</div>`;
+  html += `<div class="step-line">V = ${fmt(volume, Math.abs(volume)<1?8:4)} m³</div>`;
 
   html += `<div class="step-label">${n++}. Massa jenis</div>`;
-  html += `<div class="step-line">ρ = ${Math.round(density*1000)} kg/m³ = ${fmt(density)} g/cm³</div>`;
-  html += `<div class="step-note">(÷1000 karena 1 m³ = 1.000.000 cm³ dan 1 kg = 1000 g)</div>`;
+  html += `<div class="step-line">ρ = ${Math.round(density)} kg/m³</div>`;
+  html += `<div class="step-note">satuan meter jadi acuan, jadi ρ langsung dipakai dalam kg/m³ (tidak perlu konversi g/cm³ lagi)</div>`;
 
   html += `<div class="step-label">${n++}. Massa per 1 pcs</div>`;
-  html += `<div class="step-line">m = V × ρ = ${fmt(volume)} × ${fmt(density)} = ${fmt(massSingle)} gram</div>`;
+  html += `<div class="step-line">m = V × ρ = ${fmt(volume, Math.abs(volume)<1?8:4)} × ${Math.round(density)} = ${fmt(massSingle, Math.abs(massSingle)<1?5:3)} kg</div>`;
+  html += `<div class="step-note">m³ × kg/m³ = kg langsung, tanpa konversi tambahan</div>`;
   const singleU = autoUnit(massSingle);
-  if(singleU.unit === 'gram'){
-    html += `<div class="step-note">m tetap dalam gram (kurang dari 1000 g)</div>`;
-  } else {
-    html += `<div class="step-note">m gram convert ke ${singleU.unit}</div>`;
-    html += `<div class="step-line">m = ${fmt(massSingle)} gram ÷ ${singleU.divisor.toLocaleString('id-ID')} = ${fmt(singleU.val)} ${singleU.unit}</div>`;
+  if(singleU.ton !== null){
+    html += `<div class="step-note">nilainya sudah lewat 1.000 kg → ditambahkan juga konversi ke ton</div>`;
+    html += `<div class="step-line">m = ${fmt(singleU.val,3)} kg ÷ 1.000 = ${fmt(singleU.ton,3)} ton</div>`;
   }
 
   if(qty > 1){
     html += `<div class="step-label">${n++}. Total untuk ${qty} pcs</div>`;
+    html += `<div class="step-line">m total = ${fmt(massSingle, Math.abs(massSingle)<1?5:3)} kg × ${qty} = ${fmt(massTotal, Math.abs(massTotal)<1?5:3)} kg</div>`;
     const totalU = autoUnit(massTotal);
-    if(singleU.unit === 'gram'){
-      html += `<div class="step-line">m total = ${fmt(massSingle)} gram × ${qty} = ${fmt(massTotal)} gram</div>`;
-      if(totalU.unit !== 'gram'){
-        html += `<div class="step-note">total ternyata sudah lewat 1000 g → convert ke ${totalU.unit}</div>`;
-        html += `<div class="step-line">m total = ${fmt(massTotal)} gram ÷ ${totalU.divisor.toLocaleString('id-ID')} = ${fmt(totalU.val)} ${totalU.unit}</div>`;
-      }
-    } else {
-      html += `<div class="step-line">m total = ${fmt(singleU.val)} ${singleU.unit} × ${qty} = ${fmt(massTotal/singleU.divisor)} ${singleU.unit}</div>`;
-      if(totalU.unit !== singleU.unit){
-        html += `<div class="step-note">total sudah lewat batas ${singleU.unit} → convert ke ${totalU.unit}</div>`;
-        html += `<div class="step-line">m total = ${fmt(totalU.val)} ${totalU.unit}</div>`;
-      }
+    if(totalU.ton !== null){
+      html += `<div class="step-note">total sudah lewat 1.000 kg → ditambahkan juga konversi ke ton</div>`;
+      html += `<div class="step-line">m total = ${fmt(totalU.val,3)} kg ÷ 1.000 = ${fmt(totalU.ton,3)} ton</div>`;
     }
   }
 
@@ -813,8 +810,8 @@ function buildSolution(dimsCm, meta, volume, density, massSingle, qty, massTotal
 
   if(toleransiPct > 0){
     html += `<div class="step-label">${n++}. Tambah toleransi beban (${fmt(toleransiPct,2)}%)</div>`;
-    html += `<div class="step-line">toleransi = beban asli × ${fmt(toleransiPct,2)}% = ${formatMass(bebanAsli)} × ${fmt(toleransiPct,2)}% = ${formatMass(toleransiG)}</div>`;
-    html += `<div class="step-line">beban akhir = beban asli + toleransi = ${formatMass(bebanAsli)} + ${formatMass(toleransiG)} = ${formatMass(bebanAkhir)}</div>`;
+    html += `<div class="step-line">toleransi = beban asli × ${fmt(toleransiPct,2)}% = ${formatMass(bebanAsli)} × ${fmt(toleransiPct,2)}% = ${formatMass(toleransiKg)}</div>`;
+    html += `<div class="step-line">beban akhir = beban asli + toleransi = ${formatMass(bebanAsli)} + ${formatMass(toleransiKg)} = ${formatMass(bebanAkhir)}</div>`;
     html += `<div class="step-note">toleransi selalu DITAMBAHKAN ke beban asli (bukan dikurangi), untuk mengantisipasi kelebihan ukuran/berat aktual di lapangan (mill tolerance, pembulatan dimensi, penyusutan pemotongan, dll)</div>`;
   } else {
     html += `<div class="step-note">tidak ada toleransi → beban akhir = beban asli</div>`;
