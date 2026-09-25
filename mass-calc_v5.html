@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RK LAB — MS-100 Mass Scale v5</title>
+<title>RK LAB — MS-100 Mass Scale v6</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e3a5f">
 <meta name="mobile-web-app-capable" content="yes">
@@ -76,6 +76,22 @@
     font-size: 13px; color: var(--ink-soft); margin-top: 10px; line-height: 1.55;
     border-top: none; padding-top: 0;
   }
+  .reset-btn{
+    display:inline-block;
+    margin-top: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    font-family:'Inter',sans-serif;
+    color: var(--mint);
+    border: 1px solid rgba(217,83,79,0.4);
+    background: rgba(217,83,79,0.08);
+    border-radius: 7px;
+    padding: 6px 10px;
+    cursor: pointer;
+    user-select: none;
+    letter-spacing: 0.2px;
+  }
+  .reset-btn:active{ opacity: 0.7; }
 
   .panel{
     background: var(--panel-alt);
@@ -137,6 +153,19 @@
 
   .dens-custom{ display:none; }
   .dens-custom.show{ display:block; }
+
+  .warn-banner{
+    margin-top: 12px;
+    background: rgba(217,83,79,0.1);
+    border: 1px solid rgba(217,83,79,0.4);
+    color: #a83e3a;
+    border-radius: 9px;
+    padding: 9px 11px;
+    font-size: 12px;
+    line-height: 1.5;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+  }
 
   .lcd{
     background: var(--bg-alt);
@@ -213,9 +242,10 @@
     <div class="nameplate">
       <div class="np-top">
         <div class="np-model">MASS FROM VOLUME</div>
-        <div class="np-tag">CALC-v5</div>
+        <div class="np-tag">CALC-v6</div>
       </div>
-      <div class="np-desc">Pilih bentuk (termasuk IWF/WF & Hollow) → isi dimensi (satuan bebas per kolom) → pilih material → opsional berat wadah & toleransi beban. Massa dihitung dari volume × massa jenis, lalu wadah + toleransi ditambahkan ke beban akhir.</div>
+      <div class="np-desc">Pilih bentuk (termasuk IWF/WF & Hollow) → isi dimensi (satuan bebas per kolom) → pilih material → opsional berat wadah (mode per pcs/total) & toleransi beban. Massa dihitung dari volume × massa jenis, lalu wadah + toleransi ditambahkan ke beban akhir.</div>
+      <div id="resetBtn" class="reset-btn">↺ Reset semua input</div>
     </div>
 
     <div class="panel">
@@ -229,10 +259,15 @@
         <div class="toggle-btn" data-shape="kerucut">KERUCUT</div>
         <div class="toggle-btn" data-shape="iwf">IWF/WF</div>
         <div class="toggle-btn" data-shape="hollow">HOLLOW</div>
+        <div class="toggle-btn" data-shape="prisma_segitiga">PRISMA SEGITIGA</div>
+        <div class="toggle-btn" data-shape="prisma_trapesium">PRISMA TRAPESIUM</div>
+        <div class="toggle-btn" data-shape="limas_segiempat">LIMAS SEGIEMPAT</div>
+        <div class="toggle-btn" data-shape="limas_segitiga">LIMAS SEGITIGA</div>
       </div>
 
       <div id="modeRow"></div>
       <div id="dimFields"></div>
+      <div id="dimWarning" class="warn-banner" style="display:none;"></div>
     </div>
 
     <div class="panel">
@@ -254,8 +289,15 @@
     <div class="panel">
       <div class="panel-head"><span class="idx">3</span>WADAH & TOLERANSI</div>
       <div class="field" style="margin-top:0;">
-        <label>Berat wadah/kemasan <span class="tag">kg</span></label>
+        <label>Berat wadah/kemasan <span class="tag" id="wadahTag">kg / pcs</span></label>
         <input type="number" id="wadahInput" step="0.01" min="0" value="0" placeholder="0 = tanpa wadah" style="width:100%;">
+      </div>
+      <div class="field">
+        <label>Cara hitung wadah</label>
+        <div class="toggle-strip" id="wadahModeGrid" style="grid-template-columns:repeat(2,1fr);">
+          <div class="toggle-btn active" data-mode="perpcs">PER PCS (× jumlah)</div>
+          <div class="toggle-btn" data-mode="total">TOTAL (sudah gabungan)</div>
+        </div>
       </div>
       <div class="field">
         <label>Toleransi beban <span class="tag">%</span></label>
@@ -338,7 +380,7 @@ const materials = [
   {name:"Custom...", d:null}
 ];
 
-const shapeLabel = { kubus:"Kubus", balok:"Balok", tabung:"Tabung", pipa:"Pipa", bola:"Bola", kerucut:"Kerucut", iwf:"Profil IWF/WF", hollow:"Hollow (pipa kotak)" };
+const shapeLabel = { kubus:"Kubus", balok:"Balok", tabung:"Tabung", pipa:"Pipa", bola:"Bola", kerucut:"Kerucut", iwf:"Profil IWF/WF", hollow:"Hollow (pipa kotak)", prisma_segitiga:"Prisma Segitiga", prisma_trapesium:"Prisma Trapesium", limas_segiempat:"Limas Segiempat", limas_segitiga:"Limas Segitiga" };
 const formulaText = {
   kubus: "V = s³",
   balok: "V = p × l × t",
@@ -347,7 +389,11 @@ const formulaText = {
   bola: "V = (4/3) × π × R³",
   kerucut: "V = (1/3) × π × R² × t",
   iwf: "V = [(2 × B × t) + ((T − 2t) × t)] × P",
-  hollow: "V = [(L × T) − ((L−2t) × (T−2t))] × P"
+  hollow: "V = [(L × T) − ((L−2t) × (T−2t))] × P",
+  prisma_segitiga: "V = (1/2 × a × t_segitiga) × p_prisma",
+  prisma_trapesium: "V = ((a + b) / 2 × t_trapesium) × p_prisma",
+  limas_segiempat: "V = (1/3) × p_alas × l_alas × t",
+  limas_segitiga: "V = (1/3) × (1/2 × a × t_segitiga) × t"
 };
 const RADIUS_SHAPES = ["tabung","bola","kerucut"];
 
@@ -359,10 +405,15 @@ const volumeFns = {
   bola:    d => (4/3)*PI_APPROX*Math.pow(d.R,3),
   kerucut: d => (1/3)*PI_APPROX*Math.pow(d.R,2)*d.t,
   iwf:     d => ((2*d.b*d.t) + (Math.max(d.h-2*d.t,0)*d.t)) * d.l,
-  hollow:  d => (Math.max((d.w*d.h) - (Math.max(d.w-2*d.t,0)*Math.max(d.h-2*d.t,0)),0)) * d.l
+  hollow:  d => (Math.max((d.w*d.h) - (Math.max(d.w-2*d.t,0)*Math.max(d.h-2*d.t,0)),0)) * d.l,
+  prisma_segitiga:  d => (0.5*d.a*d.ts) * d.p,
+  prisma_trapesium: d => ((d.a+d.b)/2*d.tt) * d.p,
+  limas_segiempat:  d => (1/3)*d.p*d.l*d.t,
+  limas_segitiga:   d => (1/3)*(0.5*d.a*d.ts)*d.t
 };
 
 /* ---------- state ---------- */
+const STORAGE_KEY = 'rklab_masscalc_v6_state';
 let currentShape = "kubus";
 let radiusMode = "r";      // 'r' or 'd', dipakai tabung/bola/kerucut
 let pipaMode = "rr";       // 'rr' | 'dd' | 'dt'
@@ -382,9 +433,13 @@ const outDensity = document.getElementById('outDensity');
 const outQty = document.getElementById('outQty');
 const outMass = document.getElementById('outMass');
 const solutionBox = document.getElementById('solutionBox');
+const dimWarning = document.getElementById('dimWarning');
 const serial = document.getElementById('serial');
 const massUnitGrid = document.getElementById('massUnitGrid');
 const wadahInput = document.getElementById('wadahInput');
+const wadahTag = document.getElementById('wadahTag');
+const wadahModeGrid = document.getElementById('wadahModeGrid');
+let wadahMode = 'perpcs'; // 'perpcs' = dikali qty, 'total' = dipakai apa adanya
 const toleransiInput = document.getElementById('toleransiInput');
 const rowWadah = document.getElementById('rowWadah');
 const rowToleransi = document.getElementById('rowToleransi');
@@ -441,7 +496,7 @@ function fieldRow(id, label){
   div.className = 'field';
   div.innerHTML = `<label>${label}</label>
     <div class="input-unit-row">
-      <input type="number" step="0.01" data-dim="${id}" placeholder="0">
+      <input type="number" step="0.01" min="0" data-dim="${id}" placeholder="0">
       ${unitSelectHtml(id)}
     </div>`;
   return div;
@@ -512,6 +567,14 @@ function renderDimFields(){
     fields = [{id:'tb', label:'Tebal (t) — flange & web'}, {id:'b', label:'Lebar sayap (B)'}, {id:'h', label:'Tinggi profil (T)'}, {id:'l', label:'Panjang batang (P)'}];
   } else if(currentShape === 'hollow'){
     fields = [{id:'tb', label:'Tebal dinding (t)'}, {id:'w', label:'Lebar (L)'}, {id:'h', label:'Tinggi (T)'}, {id:'l', label:'Panjang (P)'}];
+  } else if(currentShape === 'prisma_segitiga'){
+    fields = [{id:'a', label:'Alas segitiga (a)'}, {id:'ts', label:'Tinggi segitiga'}, {id:'p', label:'Panjang prisma'}];
+  } else if(currentShape === 'prisma_trapesium'){
+    fields = [{id:'a', label:'Sisi sejajar atas (a)'}, {id:'b', label:'Sisi sejajar bawah (b)'}, {id:'tt', label:'Tinggi trapesium'}, {id:'p', label:'Panjang prisma'}];
+  } else if(currentShape === 'limas_segiempat'){
+    fields = [{id:'p', label:'Panjang alas'}, {id:'l', label:'Lebar alas'}, {id:'t', label:'Tinggi limas'}];
+  } else if(currentShape === 'limas_segitiga'){
+    fields = [{id:'a', label:'Alas segitiga (a)'}, {id:'ts', label:'Tinggi segitiga'}, {id:'t', label:'Tinggi limas'}];
   }
 
   // selalu 1 kolom vertikal — tiap field sudah punya input + dropdown satuan sendiri,
@@ -531,7 +594,7 @@ function renderDimFields(){
 function readRaw(id){
   const inp = dimFields.querySelector(`input[data-dim="${id}"]`);
   const val = inp ? parseFloat(inp.value) : NaN;
-  const raw = isNaN(val) ? 0 : val;
+  const raw = isNaN(val) ? 0 : Math.max(0, val);
   const unit = fieldUnits[id] || 'cm';
   const m = raw * mPerUnit[unit];
   return { raw, unit, m };
@@ -589,16 +652,47 @@ function resolveDims(){
     meta.rawRl = rawRl; meta.rawRd = rawRd; meta.rawTb = rawTb;
     meta.rl_m = rl_m; meta.rd_m = rd_m;
     meta.parts = [{label:'Panjang (t)', ...t}];
+    if(rl_m > 0 && rd_m >= rl_m){
+      meta.warning = 'Jari-jari/diameter dalam (atau tebal dinding) terlalu besar dibanding sisi luar — jari-jari dalam jadi ≥ jari-jari luar, hasil tidak valid secara fisik. Cek lagi angkanya.';
+    } else if(rd_m < 0){
+      meta.warning = 'Tebal dinding melebihi jari-jari luar — jari-jari dalam jadi negatif, hasil tidak valid secara fisik. Cek lagi angkanya.';
+    }
   }
   else if(currentShape === 'iwf'){
     const tb = readRaw('tb'), b = readRaw('b'), h = readRaw('h'), l = readRaw('l');
     dimsM = { t: tb.m, b: b.m, h: h.m, l: l.m };
     meta.parts = [{label:'Tebal (t)', ...tb},{label:'Lebar sayap (B)', ...b},{label:'Tinggi profil (T)', ...h},{label:'Panjang (P)', ...l}];
+    if(tb.m > 0 && h.m - 2*tb.m <= 0){
+      meta.warning = 'Tebal (t) terlalu besar dibanding tinggi profil (T) — badan (web) jadi 0 atau negatif, hasil tidak valid secara fisik. Cek lagi angkanya.';
+    }
   }
   else if(currentShape === 'hollow'){
     const tb = readRaw('tb'), w = readRaw('w'), h = readRaw('h'), l = readRaw('l');
     dimsM = { t: tb.m, w: w.m, h: h.m, l: l.m };
     meta.parts = [{label:'Tebal dinding (t)', ...tb},{label:'Lebar (L)', ...w},{label:'Tinggi (T)', ...h},{label:'Panjang (P)', ...l}];
+    if(tb.m > 0 && (w.m - 2*tb.m <= 0 || h.m - 2*tb.m <= 0)){
+      meta.warning = 'Tebal dinding (t) terlalu besar dibanding lebar/tinggi profil — rongga dalam jadi 0 atau negatif, hasil tidak valid secara fisik. Cek lagi angkanya.';
+    }
+  }
+  else if(currentShape === 'prisma_segitiga'){
+    const a = readRaw('a'), ts = readRaw('ts'), p = readRaw('p');
+    dimsM = { a: a.m, ts: ts.m, p: p.m };
+    meta.parts = [{label:'Alas segitiga (a)', ...a},{label:'Tinggi segitiga', ...ts},{label:'Panjang prisma', ...p}];
+  }
+  else if(currentShape === 'prisma_trapesium'){
+    const a = readRaw('a'), b = readRaw('b'), tt = readRaw('tt'), p = readRaw('p');
+    dimsM = { a: a.m, b: b.m, tt: tt.m, p: p.m };
+    meta.parts = [{label:'Sisi sejajar atas (a)', ...a},{label:'Sisi sejajar bawah (b)', ...b},{label:'Tinggi trapesium', ...tt},{label:'Panjang prisma', ...p}];
+  }
+  else if(currentShape === 'limas_segiempat'){
+    const p = readRaw('p'), l = readRaw('l'), t = readRaw('t');
+    dimsM = { p: p.m, l: l.m, t: t.m };
+    meta.parts = [{label:'Panjang alas', ...p},{label:'Lebar alas', ...l},{label:'Tinggi limas', ...t}];
+  }
+  else if(currentShape === 'limas_segitiga'){
+    const a = readRaw('a'), ts = readRaw('ts'), t = readRaw('t');
+    dimsM = { a: a.m, ts: ts.m, t: t.m };
+    meta.parts = [{label:'Alas segitiga (a)', ...a},{label:'Tinggi segitiga', ...ts},{label:'Tinggi limas', ...t}];
   }
 
   return { dimsM, meta };
@@ -627,6 +721,16 @@ qtyInput.addEventListener('input', calculate);
 wadahInput.addEventListener('input', calculate);
 toleransiInput.addEventListener('input', calculate);
 
+wadahModeGrid.querySelectorAll('.toggle-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    wadahModeGrid.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    wadahMode = btn.dataset.mode;
+    wadahTag.textContent = wadahMode === 'perpcs' ? 'kg / pcs' : 'kg (total)';
+    calculate();
+  });
+});
+
 massUnitGrid.querySelectorAll('.toggle-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     massUnitGrid.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));
@@ -641,6 +745,14 @@ function calculate(){
   const { dimsM, meta } = resolveDims();
   const volume = volumeFns[currentShape](dimsM); // m3
 
+  if(meta.warning){
+    dimWarning.style.display = 'block';
+    dimWarning.textContent = '⚠ ' + meta.warning;
+  } else {
+    dimWarning.style.display = 'none';
+    dimWarning.textContent = '';
+  }
+
   const idx = materialSelect.value;
   let density = materials[idx].d * 1000; // materials[].d disimpan dalam g/cm³ → ×1000 jadi kg/m³
   if(materials[idx].d === null){
@@ -652,7 +764,8 @@ function calculate(){
   const qty = Math.max(1, parseInt(qtyInput.value) || 1);
   const massTotal = massSingle * qty; // kg, "massa benda" murni
 
-  const wadahKg = Math.max(0, parseFloat(wadahInput.value) || 0);
+  const wadahRaw = Math.max(0, parseFloat(wadahInput.value) || 0);
+  const wadahKg = wadahMode === 'perpcs' ? wadahRaw * qty : wadahRaw;
   const toleransiPct = Math.max(0, parseFloat(toleransiInput.value) || 0);
 
   const bebanAsli = massTotal + wadahKg;           // benda + wadah, sebelum toleransi
@@ -660,7 +773,7 @@ function calculate(){
   const bebanAkhir = bebanAsli + toleransiKg;       // hasil final
 
   outVolume.textContent = `${fmt(volume, Math.abs(volume)<1?8:4)} m³`;
-  outDensity.textContent = `${Math.round(density)} kg/m³`;
+  outDensity.textContent = `${fmt(density,3)} kg/m³`;
   outQty.textContent = `${qty} pcs`;
 
   function formatMass(kg){
@@ -682,13 +795,16 @@ function calculate(){
 
   rowWadah.style.display = wadahKg > 0 ? 'flex' : 'none';
   rowToleransi.style.display = toleransiPct > 0 ? 'flex' : 'none';
-  outWadah.textContent = `${fmt(wadahKg,3)} kg`;
+  outWadah.textContent = (wadahMode === 'perpcs' && qty > 1 && wadahRaw > 0)
+    ? `${fmt(wadahRaw,3)} kg × ${qty} pcs = ${fmt(wadahKg,3)} kg`
+    : `${fmt(wadahKg,3)} kg`;
   outToleransi.textContent = `${fmt(toleransiPct,2)}% (${formatMass(toleransiKg)})`;
 
   finalLabel.textContent = (wadahKg>0 || toleransiPct>0) ? 'Beban akhir (+ wadah/toleransi)' : 'Beban akhir';
   outFinal.textContent = formatMass(bebanAkhir);
 
-  buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal, wadahKg, toleransiPct, toleransiKg, bebanAsli, bebanAkhir, formatMass);
+  buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal, wadahKg, toleransiPct, toleransiKg, bebanAsli, bebanAkhir, formatMass, wadahRaw, wadahMode);
+  saveState();
 }
 
 /* ---------- solution builder ---------- */
@@ -697,9 +813,13 @@ function convLine(label, part){
   return `${label}: ${fmt(part.raw)} ${unitLabel[part.unit]} × ${mPerUnit[part.unit]} = ${fmt(part.m,6)} m`;
 }
 
-function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal, wadahKg, toleransiPct, toleransiKg, bebanAsli, bebanAkhir, formatMass){
+function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal, wadahKg, toleransiPct, toleransiKg, bebanAsli, bebanAkhir, formatMass, wadahRaw, wadahMode){
   let html = '';
   let n = 1;
+
+  if(meta.warning){
+    html += `<div class="step-note" style="color:#a83e3a;font-weight:700;">⚠ ${meta.warning}</div>`;
+  }
 
   html += `<div class="step-label">${n++}. Rumus volume (${shapeLabel[currentShape]})</div>`;
   html += `<div class="step-line">${formulaText[currentShape]}</div>`;
@@ -707,8 +827,12 @@ function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal,
     html += `<div class="step-note">Pendekatan lapangan: sayap (flange) atas+bawah dianggap 2 pelat selebar B tebal t, badan (web) dianggap 1 pelat setinggi (T−2t) tebal t</div>`;
   } else if(currentShape === 'hollow'){
     html += `<div class="step-note">Hollow (pipa kotak) dihitung seperti pipa bulat: luas penampang = luas persegi luar − luas persegi dalam</div>`;
-  } else {
+  } else if(RADIUS_SHAPES.includes(currentShape) || currentShape === 'pipa'){
     html += `<div class="step-note">R = jari-jari (luar, kalau berongga) &nbsp; r = jari-jari dalam</div>`;
+  } else if(currentShape === 'prisma_segitiga' || currentShape === 'limas_segitiga'){
+    html += `<div class="step-note">a = alas segitiga &nbsp; tinggi segitiga = jarak tegak lurus dari alas ke titik puncak segitiga (bukan tinggi prisma/limas)</div>`;
+  } else if(currentShape === 'prisma_trapesium'){
+    html += `<div class="step-note">a & b = sisi sejajar trapesium (atas & bawah) &nbsp; tinggi trapesium = jarak tegak lurus antara kedua sisi sejajar</div>`;
   }
 
   // konversi satuan
@@ -752,6 +876,10 @@ function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal,
   if(currentShape === 'pipa') sub = `V = ${PI_APPROX} × (${fmt(dimsM.rl,6)}² − ${fmt(dimsM.rd,6)}²) × ${fmt(dimsM.t,6)}`;
   if(currentShape === 'iwf') sub = `V = [(2 × ${fmt(dimsM.b,6)} × ${fmt(dimsM.t,6)}) + ((${fmt(dimsM.h,6)} − 2×${fmt(dimsM.t,6)}) × ${fmt(dimsM.t,6)})] × ${fmt(dimsM.l,6)}`;
   if(currentShape === 'hollow') sub = `V = [(${fmt(dimsM.w,6)} × ${fmt(dimsM.h,6)}) − ((${fmt(dimsM.w,6)}−2×${fmt(dimsM.t,6)}) × (${fmt(dimsM.h,6)}−2×${fmt(dimsM.t,6)}))] × ${fmt(dimsM.l,6)}`;
+  if(currentShape === 'prisma_segitiga') sub = `V = (1/2 × ${fmt(dimsM.a,6)} × ${fmt(dimsM.ts,6)}) × ${fmt(dimsM.p,6)}`;
+  if(currentShape === 'prisma_trapesium') sub = `V = ((${fmt(dimsM.a,6)} + ${fmt(dimsM.b,6)}) / 2 × ${fmt(dimsM.tt,6)}) × ${fmt(dimsM.p,6)}`;
+  if(currentShape === 'limas_segiempat') sub = `V = (1/3) × ${fmt(dimsM.p,6)} × ${fmt(dimsM.l,6)} × ${fmt(dimsM.t,6)}`;
+  if(currentShape === 'limas_segitiga') sub = `V = (1/3) × (1/2 × ${fmt(dimsM.a,6)} × ${fmt(dimsM.ts,6)}) × ${fmt(dimsM.t,6)}`;
   html += `<div class="step-line">${sub}</div>`;
 
   if(currentShape === 'pipa'){
@@ -770,16 +898,28 @@ function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal,
     html += `<div class="step-note">Luas persegi luar (L×T) = ${fmt(areaLuar,8)} m² &nbsp; Luas persegi dalam ((L−2t)×(T−2t)) = ${fmt(areaDalam,8)} m²</div>`;
     html += `<div class="step-note">Luas penampang = ${fmt(areaLuar,8)} − ${fmt(areaDalam,8)} = ${fmt(areaLuar-areaDalam,8)} m²</div>`;
   }
+  if(currentShape === 'prisma_segitiga' || currentShape === 'limas_segitiga'){
+    const areaAlas = 0.5*dimsM.a*dimsM.ts;
+    html += `<div class="step-note">Luas alas segitiga = (1/2 × a × tinggi segitiga) = ${fmt(areaAlas,8)} m²</div>`;
+  }
+  if(currentShape === 'prisma_trapesium'){
+    const areaAlas = (dimsM.a+dimsM.b)/2*dimsM.tt;
+    html += `<div class="step-note">Luas alas trapesium = ((a + b)/2 × tinggi trapesium) = ${fmt(areaAlas,8)} m²</div>`;
+  }
+  if(currentShape === 'limas_segiempat'){
+    const areaAlas = dimsM.p*dimsM.l;
+    html += `<div class="step-note">Luas alas persegi panjang = (panjang × lebar) = ${fmt(areaAlas,8)} m²</div>`;
+  }
 
   html += `<div class="step-label">${n++}. Hasil volume (1 pcs)</div>`;
   html += `<div class="step-line">V = ${fmt(volume, Math.abs(volume)<1?8:4)} m³</div>`;
 
   html += `<div class="step-label">${n++}. Massa jenis</div>`;
-  html += `<div class="step-line">ρ = ${Math.round(density)} kg/m³</div>`;
+  html += `<div class="step-line">ρ = ${fmt(density,3)} kg/m³</div>`;
   html += `<div class="step-note">satuan meter jadi acuan, jadi ρ langsung dipakai dalam kg/m³ (tidak perlu konversi g/cm³ lagi)</div>`;
 
   html += `<div class="step-label">${n++}. Massa per 1 pcs</div>`;
-  html += `<div class="step-line">m = V × ρ = ${fmt(volume, Math.abs(volume)<1?8:4)} × ${Math.round(density)} = ${fmt(massSingle, Math.abs(massSingle)<1?5:3)} kg</div>`;
+  html += `<div class="step-line">m = V × ρ = ${fmt(volume, Math.abs(volume)<1?8:4)} × ${fmt(density,3)} = ${fmt(massSingle, Math.abs(massSingle)<1?5:3)} kg</div>`;
   html += `<div class="step-note">m³ × kg/m³ = kg langsung, tanpa konversi tambahan</div>`;
   const singleU = autoUnit(massSingle);
   if(singleU.ton !== null){
@@ -802,6 +942,10 @@ function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal,
 
   if(wadahKg > 0){
     html += `<div class="step-label">${n++}. Tambah berat wadah/kemasan</div>`;
+    if(wadahMode === 'perpcs' && qty > 1){
+      html += `<div class="step-line">berat wadah = ${fmt(wadahRaw,3)} kg/pcs × ${qty} pcs = ${fmt(wadahKg,3)} kg</div>`;
+      html += `<div class="step-note">mode PER PCS: tiap benda punya wadah sendiri, jadi berat wadah ikut dikali jumlah (qty)</div>`;
+    }
     html += `<div class="step-line">beban asli = m benda + berat wadah = ${formatMass(massTotal)} + ${fmt(wadahKg,3)} kg = ${formatMass(bebanAsli)}</div>`;
     html += `<div class="step-note">berat wadah/kemasan ikut ditimbang di lapangan, jadi ditambahkan langsung ke berat benda, bukan bagian dari volume/massa jenis</div>`;
   } else {
@@ -828,13 +972,97 @@ function buildSolution(dimsM, meta, volume, density, massSingle, qty, massTotal,
   solutionBox.innerHTML = html;
 }
 
+/* ---------- auto-save / restore input terakhir ---------- */
+function saveState(){
+  try{
+    const dimsVals = {};
+    dimFields.querySelectorAll('input[data-dim]').forEach(inp=> dimsVals[inp.dataset.dim] = inp.value);
+    const state = {
+      currentShape, radiusMode, pipaMode, massUnit, fieldUnits, wadahMode,
+      qty: qtyInput.value, wadah: wadahInput.value, toleransi: toleransiInput.value,
+      materialIdx: materialSelect.value, customDens: customDens.value,
+      dimsVals
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){ /* localStorage nggak tersedia, diamkan saja */ }
+}
+
+function loadState(){
+  let saved = null;
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) saved = JSON.parse(raw);
+  }catch(e){ saved = null; }
+  if(!saved) return false;
+
+  currentShape = saved.currentShape || currentShape;
+  radiusMode = saved.radiusMode || radiusMode;
+  pipaMode = saved.pipaMode || pipaMode;
+  massUnit = saved.massUnit || massUnit;
+  fieldUnits = saved.fieldUnits || {};
+  wadahMode = saved.wadahMode || wadahMode;
+
+  shapeGrid.querySelectorAll('.toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.shape === currentShape));
+  massUnitGrid.querySelectorAll('.toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.unit === massUnit));
+  wadahModeGrid.querySelectorAll('.toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.mode === wadahMode));
+  wadahTag.textContent = wadahMode === 'perpcs' ? 'kg / pcs' : 'kg (total)';
+
+  if(saved.materialIdx !== undefined) materialSelect.value = saved.materialIdx;
+  customDensWrap.classList.toggle('show', materials[materialSelect.value].d === null);
+  if(saved.customDens !== undefined) customDens.value = saved.customDens;
+  if(saved.qty !== undefined) qtyInput.value = saved.qty;
+  if(saved.wadah !== undefined) wadahInput.value = saved.wadah;
+  if(saved.toleransi !== undefined) toleransiInput.value = saved.toleransi;
+
+  renderModeRow();
+  renderDimFields();
+  if(saved.dimsVals){
+    Object.keys(saved.dimsVals).forEach(id=>{
+      const inp = dimFields.querySelector(`input[data-dim="${id}"]`);
+      if(inp) inp.value = saved.dimsVals[id];
+    });
+  }
+  return true;
+}
+
+/* ---------- tombol reset ---------- */
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+
+  currentShape = 'kubus';
+  radiusMode = 'r';
+  pipaMode = 'rr';
+  massUnit = 'metric';
+  fieldUnits = {};
+  wadahMode = 'perpcs';
+
+  shapeGrid.querySelectorAll('.toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.shape === 'kubus'));
+  massUnitGrid.querySelectorAll('.toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.unit === 'metric'));
+  wadahModeGrid.querySelectorAll('.toggle-btn').forEach(b=> b.classList.toggle('active', b.dataset.mode === 'perpcs'));
+  wadahTag.textContent = 'kg / pcs';
+
+  materialSelect.value = 0;
+  customDensWrap.classList.toggle('show', materials[0].d === null);
+  customDens.value = '';
+  qtyInput.value = '1';
+  wadahInput.value = '0';
+  toleransiInput.value = '0';
+
+  renderModeRow();
+  renderDimFields();
+  calculate();
+});
+
 /* ---------- init ---------- */
 const d = new Date();
 serial.textContent = `SN—${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
 
-renderModeRow();
-renderDimFields();
-customDensWrap.classList.toggle('show', materials[0].d === null);
+const restored = loadState();
+if(!restored){
+  renderModeRow();
+  renderDimFields();
+  customDensWrap.classList.toggle('show', materials[0].d === null);
+}
 calculate();
 </script>
 <script>
